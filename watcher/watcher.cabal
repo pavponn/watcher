@@ -1,0 +1,42 @@
+name:                watcher
+version:             0.1.0.0
+synopsis:            Synopsis for watcher
+description:         Watcher
+
+homepage:            https://github.com/fp-ctd-itmo/hw2-pavponn
+license:             MIT
+license-file:        LICENSE
+author:              Pavel Ponomarev
+maintainer:          pavponn@yandex.ru
+copyright:           2020 Pavel Ponomarev
+
+category:            Shell
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+tested-with:         GHC == 8.6.5
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     FileManager.FileSystemTypes
+                     , FileManager.Main
+  -- other-modules:
+  ghc-options:         -Wall -Werror
+  build-depends:       base >= 4.9 && < 5
+                     , directory
+                     , time
+                     , bytestring
+                     , filepath
+  default-language:    Haskell2010
+
+executable trash
+  hs-source-dirs:      executables
+  main-is:             Main.hs
+  -- other-modules:
+  -- other-extensions:
+  ghc-options:         -Wall -Werror
+  build-depends:       base >=4.9 && < 5
+                     , mtl
+                     , optparse-applicative
+                     , watcher
+  default-language:    Haskell2010
