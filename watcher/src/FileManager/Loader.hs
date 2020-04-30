@@ -1,4 +1,4 @@
-module Loader
+module FileManager.Loader
   ( getFileSystem
   ) where
 
@@ -6,7 +6,7 @@ import Control.Monad
 import qualified Data.ByteString as B
 import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
-import FileSystemTypes
+import FileManager.FileSystemTypes
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getFileSize,
                          getModificationTime, getPermissions, listDirectory, pathIsSymbolicLink)
 import System.FilePath.Posix (splitFileName, (</>))

@@ -1,4 +1,4 @@
-module FileSystemTypes where
+module FileManager.FileSystemTypes where
 
 import qualified Data.ByteString as B
 import qualified Data.Map.Strict as Map
