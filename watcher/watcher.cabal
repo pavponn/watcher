@@ -41,7 +41,7 @@ executable watcher
                      , FileManager.Handlers
                      , FileManager.Loader
   -- other-extensions:
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Werror
   build-depends:       base >=4.9 && < 5
                      , directory
                      , time

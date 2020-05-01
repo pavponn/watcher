@@ -26,32 +26,6 @@ data FSException
   | FSInconsistent
   deriving (Show)
 
----TODO solve ByteString vs String problem
--- main :: IO ()
--- main = do
-  -- fs <- getCurrentDirectory >>= \curDir -> getFileSystem curDir
-  -- let st = FSState fs ""
-  -- s0 <- getLine
-  -- let (res0, st0) = runState (runExceptT $ goToDirectory s0) st
-  -- case res0 of
-  --   (Left err)   -> putStrLn $ show (err :: FSException)
-  --   (Right cont) -> putStrLn "success"
-  -- s <- getLine
-  -- let (res, st1) = runState (runExceptT $ directoryContent s) st0
-  -- case res of
-  --   (Left err)   -> putStrLn $ show (err :: FSException)
-  --   (Right cont) -> putStrLn cont
-  -- s1 <- getLine
-  -- let (res2, st2) = runState (runExceptT $ createDirectory s1) st1
-  -- case res2 of
-  --   (Left err) -> putStrLn $ show (err :: FSException)
-  --   (Right _)  -> putStrLn "created"
-  -- s2 <- getLine
-  -- let (res3, st3) = runState (runExceptT $ goToDirectory s2) st2
-  -- case res3 of
-  --   (Left err)   -> putStrLn $ show (err :: FSException)
-  --   (Right cont) -> putStrLn cont
-
 createDirectory :: String -> ExceptT FSException (State FSState) ()
 createDirectory name = do
   FSState{fileSystem = fs, curDirectoryPath = relDirPath} <- get

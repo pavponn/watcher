@@ -82,7 +82,6 @@ defaultNewFile name path = do
 -- TODO: standard size
 defaultNewDirectory :: String -> FilePath -> Directory
 defaultNewDirectory name path = do
-
   let dirInfo = DirInfo
                   { getDirSize = 200
                   , getDirPath = path </> name

@@ -1,19 +1,23 @@
-{-#LANGUAGE ScopedTypeVariables#-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
+import qualified Data.ByteString.Char8 as B
 import Data.Semigroup ((<>))
 import FileManager.FileSystemTypes
-import FileManager.Handlers (FSState (..), directoryContent, goToDirectory)
+import FileManager.Handlers (FSState (..), createDirectory, createFile, directoryContent,
+                             fileContent, findFile, goToDirectory, information)
 import FileManager.Loader (getFileSystem)
 import Options.Applicative
 import System.Directory (makeAbsolute)
-import System.Environment (getArgs)
+import System.Environment (getArgs, getProgName)
 import System.IO (hFlush, stdout)
 
-data Opts = Opts {optCommand :: !Command }
+type ErrorMessage = String
+
+data Opts = Opts { optCommand :: !Command }
 
 data Command
   = Dir
@@ -30,7 +34,6 @@ main :: IO ()
 main = do
   a <- (\x -> if x == [] then "" else head x) <$> getArgs
   fs <- makeAbsolute a >>= \curDir -> getFileSystem curDir
-  putStrLn $ show fs
   let initState = FSState{fileSystem = fs, curDirectoryPath = ""}
   runInteractive initState
   return ()
@@ -40,30 +43,45 @@ runInteractive st = do
   printPrompt st
   args <- words <$> getLine
   let parsRes = execParserPure defaultPrefs optsParser args
-  case parsRes of
-    Failure failure -> do
-      putStrLn "fail"
+  unpackedRes <- customHandleParserResult parsRes
+  case unpackedRes of
+    Left msg -> do
+      putStrLn msg
       runInteractive st
-    Success opts ->
+    Right opts ->
       case optCommand opts of
-        Dir -> do
-          let (res, newState) = runState (runExceptT $ directoryContent "") st
-          case res of
-            (Left err)   -> putStrLn $ show err
-            (Right cont) -> putStrLn cont
-          runInteractive newState
-        (Cd path) -> do
-          let (res, newState) = runState (runExceptT $ goToDirectory path) st
-          case res of
-            (Left err)   -> putStrLn $ show err
-            (Right cont) -> putStrLn "completed"
-          runInteractive newState
-        Exit  -> putStrLn "exit"
-        _     -> putStrLn "other cmd"
+        Dir                 -> handleOperationString directoryContent ""
+        Exit                -> putStrLn "Bye-bye"
+        (Cd path)           -> handleOperationEmpty  goToDirectory path
+        (Ls path)           -> handleOperationString directoryContent path
+        (Cat path)          -> handleOperationByteString fileContent path
+        (FindFile name)     -> handleOperationString findFile name
+        (CreateFile name)   -> handleOperationEmpty  createFile name
+        (Information path)  -> handleOperationString information path
+        (CreateFolder name) -> handleOperationEmpty  createDirectory name
+  where
+    handleOperationEmpty foo arg = do
+      let (res, newState) = runState (runExceptT $ foo arg) st
+      case res of
+        (Left err) -> putStrLn $ show err
+        (Right _ ) -> return ()
+      runInteractive newState
+    handleOperationString foo arg = do
+      let (res, newState) = runState (runExceptT $ foo arg) st
+      case res of
+        (Left err) -> putStrLn $ show err
+        (Right s ) -> putStrLn s
+      runInteractive newState
+    handleOperationByteString foo arg = do
+      let (res, newState) = runState (runExceptT $ foo arg) st
+      case res of
+        (Left err) -> putStrLn $ show err
+        (Right s ) -> B.putStrLn s
+      runInteractive newState
 
 printPrompt :: FSState -> IO ()
 printPrompt FSState{fileSystem = fs, curDirectoryPath = path} = do
-  putStr $ (getPathToRootDirectory fs) ++ path ++ ">>> "
+  putStr $ "[" ++ (getPathToRootDirectory fs) ++ "/" ++ path ++ "]: "
   hFlush stdout
 
 optsParser :: ParserInfo Opts
@@ -144,8 +162,19 @@ programOptions =
     createFileOptions = CreateFile <$>
       strArgument (metavar "NAME" <> help "Name of file to be created")
     createFolderOptions :: Parser Command
-    createFolderOptions = CreateFile <$>
+    createFolderOptions = CreateFolder <$>
       strArgument (metavar "NAME" <> help "Name of folder to be created")
     informationOptions :: Parser Command
     informationOptions = Information <$>
       strArgument (metavar "PATH" <> help "Path to file/folder to show information for")
+
+customHandleParserResult :: ParserResult a -> IO (Either ErrorMessage a)
+customHandleParserResult (Success a) = return $ Right a
+customHandleParserResult (Failure f) = do
+  progn <- getProgName
+  let (msg, _) = renderFailure f progn
+  return $ Left msg
+customHandleParserResult (CompletionInvoked compl) = do
+  progn <- getProgName
+  msg <- execCompletion compl progn
+  return $ Left msg
