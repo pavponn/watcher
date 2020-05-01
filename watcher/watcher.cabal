@@ -16,28 +16,39 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 tested-with:         GHC == 8.6.5
 
-library
+-- library
+--   hs-source-dirs:      src
+--   exposed-modules:     FileManager.FileSystemTypes
+--                      , FileManager.Main
+--                      , FileManager.Loader
+--   -- other-modules:
+--   ghc-options:         -Wall
+--   build-depends:       base >= 4.9 && < 5
+--                      , directory
+--                      , time
+--                      , mtl
+--                      , bytestring
+--                      , containers
+--                      , filepath
+--                      , transformers
+--                      , optparse-applicative
+--   default-language:    Haskell2010
+
+executable watcher
   hs-source-dirs:      src
-  exposed-modules:     FileManager.FileSystemTypes
-                     , FileManager.Main
-  -- other-modules:
-  ghc-options:         -Wall -Werror
-  build-depends:       base >= 4.9 && < 5
+  main-is:             Main.hs
+  other-modules:       FileManager.FileSystemTypes
+                     , FileManager.Handlers
+                     , FileManager.Loader
+  -- other-extensions:
+  ghc-options:         -Wall
+  build-depends:       base >=4.9 && < 5
                      , directory
                      , time
                      , mtl
                      , bytestring
+                     , containers
                      , filepath
-  default-language:    Haskell2010
-
-executable trash
-  hs-source-dirs:      executables
-  main-is:             Main.hs
-  -- other-modules:
-  -- other-extensions:
-  ghc-options:         -Wall -Werror
-  build-depends:       base >=4.9 && < 5
-                     , mtl
+                     , transformers
                      , optparse-applicative
-                     , watcher
   default-language:    Haskell2010

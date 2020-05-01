@@ -3,10 +3,11 @@ module FileManager.FileSystemTypes where
 import qualified Data.ByteString as B
 import qualified Data.Map.Strict as Map
 
-import Data.Time.Clock(UTCTime(..))
-import System.Directory(Permissions(..))
-import Data.Map
-import Data.List(intercalate)
+import Data.List (intercalate)
+import Data.Time.Clock (UTCTime (..), getCurrentTime)
+import System.Directory.Internal (Permissions(..))
+import System.FilePath.Posix ((</>))
+import System.IO.Unsafe (unsafePerformIO)
 
 type DirElement = Either File Directory
 
@@ -22,7 +23,6 @@ data DirInfo = DirInfo
                  { getDirSize             :: Integer
                  , getDirPath             :: FilePath
                  , getDirPermissions      :: Permissions
-                 , getDirModificationTime :: UTCTime
                  }
 
 data File = File
@@ -38,7 +38,7 @@ data Directory = Directory
                    } deriving (Show)
 
 data FileSystem = FileSystem
-                    { getRootDirectory :: Directory
+                    { getRootDirectory       :: Directory
                     , getPathToRootDirectory :: FilePath
                     } deriving (Show)
 
@@ -54,10 +54,42 @@ instance Show FileInfo where
     , "Permissions: " ++ (show $ getFilePermissions file)
     , "Modification time: " ++ (show $ getFileModificationTime file)
     ]
+
 instance Show DirInfo where
   show dir = intercalate "\n"
     [ "Path: " ++ (show $ getDirPath dir)
     , "Size: " ++ (show $ getDirSize dir) ++ " bytes"
     , "Permissions: " ++ (show $ getDirPermissions dir)
-    , "Modification time: " ++ (show $ getDirModificationTime dir)
     ]
+
+-- TODO time
+defaultNewFile :: String -> FilePath -> File
+defaultNewFile name path = do
+  let curTime = unsafePerformIO getCurrentTime
+  let fileInfo = FileInfo
+                   { getFileType = "X3 4TO ETO"
+                   , getFilePath = path </> name
+                   , getFileSizeBytes = 0
+                   , getFilePermissions = Permissions True True True True
+                   , getFileModificationTime = curTime
+                   }
+  File
+    { getFileName = name
+    , getFileInfo = fileInfo
+    , getFileData = B.empty
+    }
+
+-- TODO: standard size
+defaultNewDirectory :: String -> FilePath -> Directory
+defaultNewDirectory name path = do
+
+  let dirInfo = DirInfo
+                  { getDirSize = 200
+                  , getDirPath = path </> name
+                  , getDirPermissions = Permissions True True True True
+                  }
+  Directory
+    { getDirName = name
+    , getDirInfo = dirInfo
+    , getDirContents = Map.empty
+    }

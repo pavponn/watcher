@@ -4,30 +4,28 @@ module FileManager.Loader
 
 import Control.Monad
 import qualified Data.ByteString as B
-import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import FileManager.FileSystemTypes
-import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getFileSize,
-                         getModificationTime, getPermissions, listDirectory, pathIsSymbolicLink)
-import System.FilePath.Posix (splitFileName, (</>))
+import System.Directory (doesDirectoryExist, doesFileExist, getFileSize, getModificationTime,
+                         getPermissions, listDirectory, pathIsSymbolicLink)
+import System.FilePath.Posix (dropTrailingPathSeparator, splitFileName, (</>))
 
 getFileSystem :: FilePath -> IO FileSystem
 getFileSystem dirPath = do
-   let (path, name) = splitFileName dirPath
+
+   let (path, name) = splitFileName $ dropTrailingPathSeparator dirPath
    directory <- visitDirectory path name
-   return $ FileSystem directory path
+   return $ FileSystem directory (path </> name)
 
 visitDirectory :: FilePath -> FilePath -> IO Directory
 visitDirectory path name = do
   let actualPath = path </> name
   permissions <- getPermissions actualPath
-  modificationTime <- getModificationTime actualPath
   dirSize <- getFileSize actualPath
   let dirInfo = DirInfo
                   { getDirSize = dirSize
                   , getDirPath = actualPath
                   , getDirPermissions = permissions
-                  , getDirModificationTime = modificationTime
                   }
   list <- listDirectory actualPath
   filesAndDirs <- filterM (\x -> not <$> pathIsSymbolicLink (actualPath </> x)) list
