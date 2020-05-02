@@ -12,35 +12,35 @@ import System.IO.Unsafe (unsafePerformIO)
 type DirElement = Either File Directory
 
 data FileInfo = FileInfo
-                  { getFileType             :: String
-                  , getFilePath             :: FilePath
-                  , getFileSizeBytes        :: Integer
-                  , getFilePermissions      :: Permissions
-                  , getFileModificationTime :: UTCTime
-                  }
+  { getFileType             :: String
+  , getFilePath             :: FilePath
+  , getFileSizeBytes        :: Integer
+  , getFilePermissions      :: Permissions
+  , getFileModificationTime :: UTCTime
+}
 
 data DirInfo = DirInfo
-                 { getDirSize             :: Integer
-                 , getDirPath             :: FilePath
-                 , getDirPermissions      :: Permissions
-                 }
+  { getDirSize             :: Integer
+  , getDirPath             :: FilePath
+  , getDirPermissions      :: Permissions
+  }
 
 data File = File
-              { getFileName :: String
-              , getFileInfo :: FileInfo
-              , getFileData :: B.ByteString
-              }
+  { getFileName :: String
+  , getFileInfo :: FileInfo
+  , getFileData :: B.ByteString
+  }
 
 data Directory = Directory
-                   { getDirName     :: String
-                   , getDirInfo     :: DirInfo
-                   , getDirContents :: Map.Map String DirElement
-                   } deriving (Show)
+  { getDirName     :: String
+  , getDirInfo     :: DirInfo
+  , getDirContents :: Map.Map String DirElement
+  } deriving (Show)
 
 data FileSystem = FileSystem
-                    { getRootDirectory       :: Directory
-                    , getPathToRootDirectory :: FilePath
-                    } deriving (Show)
+  { getRootDirectory       :: Directory
+  , getPathToRootDirectory :: FilePath
+  } deriving (Show)
 
 instance Show File where
   show (File name info _) =
@@ -66,13 +66,13 @@ instance Show DirInfo where
 defaultNewFile :: String -> FilePath -> File
 defaultNewFile name path = do
   let curTime = unsafePerformIO getCurrentTime
-  let fileInfo = FileInfo
-                   { getFileType = "X3 4TO ETO"
-                   , getFilePath = path </> name
-                   , getFileSizeBytes = 0
-                   , getFilePermissions = Permissions True True True True
-                   , getFileModificationTime = curTime
-                   }
+  let fileInfo = FileInfo {
+        getFileType = "X3 4TO ETO"
+      , getFilePath = path </> name
+      , getFileSizeBytes = 0
+      , getFilePermissions = Permissions True True True True
+      , getFileModificationTime = curTime
+      }
   File
     { getFileName = name
     , getFileInfo = fileInfo

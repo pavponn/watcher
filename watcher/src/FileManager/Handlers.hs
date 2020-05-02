@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module FileManager.Handlers where
 
 import Control.Monad.State
@@ -7,14 +9,14 @@ import Data.Either (lefts, rights)
 import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import FileManager.FileSystemTypes
-import FileManager.Loader (getFileSystem)
-import System.Directory (getCurrentDirectory)
-import System.FilePath.Posix (isAbsolute, splitDirectories, dropTrailingPathSeparator, (</>))
+import System.FilePath.Posix (dropTrailingPathSeparator, isAbsolute, normalise, splitDirectories,
+                              (</>))
+import System.Path.NameManip (guess_dotdot)
 
 data FSState = FSState
-                 { fileSystem       :: FileSystem
-                 , curDirectoryPath :: FilePath
-                 } deriving (Show)
+  { fileSystem       :: FileSystem
+  , curDirectoryPath :: FilePath
+  } deriving (Show)
 
 data FSException
   = NoSuchFileOrDirectory
@@ -24,6 +26,7 @@ data FSException
   | PermissionDenied
   | DuplicateFileOrDirectory String
   | FSInconsistent
+  | NotValidPath String
   deriving (Show)
 
 createDirectory :: String -> ExceptT FSException (State FSState) ()
@@ -67,31 +70,34 @@ findFile fileName = do
       let filesInSubDir = concat $ map (searchForFileInDirectory name) subDirs
       filesInDir ++ filesInSubDir
 
--- TODO : "../.." и тому подобное
 goToDirectory :: FilePath -> ExceptT FSException (State FSState) ()
-goToDirectory pathToDir = do
-  FSState{fileSystem = fs, curDirectoryPath = pathToCurDir} <- get
-  if (isAbsolute pathToDir) then do
-    let splittedPath = tail $ getSplittedPath pathToDir
-    let absoluteFSPath = intercalate "/" splittedPath
-    goToDirectoryInner absoluteFSPath (getRootDirectory fs) splittedPath
+goToDirectory path = do
+  if (isAbsolute path) then do
+    run path
   else do
-    curDir <- getCurFSDirectory
-    let splittedPath = getSplittedPath pathToDir
-    let absoluteFSPath = pathToCurDir </> (intercalate "/" splittedPath)
-    goToDirectoryInner absoluteFSPath curDir splittedPath
+    FSState{curDirectoryPath = curPath} <- get
+    run $ curPath </> path
   where
-    goToDirectoryInner :: FilePath -> Directory -> [FilePath]
-                       -> ExceptT FSException (State FSState) ()
-    goToDirectoryInner path _ [] = do
+    run :: FilePath -> ExceptT FSException (State FSState) ()
+    run absPath = do
+      FSState{fileSystem = fs} <- get
+      let maybePath = customNormalise absPath
+      case maybePath of
+        Nothing   -> throwE $ NotValidPath path
+        (Just np) -> do
+          let splittedPath = getSplittedPath np
+          let absoluteFSPath = intercalate "/" splittedPath
+          goToDirectoryInner absoluteFSPath (getRootDirectory fs) splittedPath
+    goToDirectoryInner :: FilePath -> Directory -> [FilePath] -> ExceptT FSException (State FSState) ()
+    goToDirectoryInner newPath _ [] = do
       st@FSState{} <- get
-      put st {curDirectoryPath = path}
+      put st {curDirectoryPath = newPath}
       return ()
-    goToDirectoryInner path dir (x:xs) = do
+    goToDirectoryInner newPath dir (x:xs) = do
       fileOrDir <- lookupInDirectory dir x
       case fileOrDir of
         (Left _    ) -> throwE NotDirectory
-        (Right dir') -> goToDirectoryInner path dir' xs
+        (Right dir') -> goToDirectoryInner newPath dir' xs
 
 fileContent :: FilePath -> ExceptT FSException (State FSState) B.ByteString
 fileContent path = runImmutableFunction getFileContent path
@@ -174,30 +180,51 @@ updateFileSystem newDir = do
   where
     updateDir :: Directory -> Directory -> [FilePath]
               ->  ExceptT FSException (State FSState) Directory
-    updateDir _   newDir []     = return newDir
-    updateDir dir newDir (x:xs) = do
+    updateDir _   nDir []     = return nDir
+    updateDir dir nDir (x:xs) = do
       fileOrDir <- lookupInDirectory dir x
       case fileOrDir of
         (Left _    ) -> throwE FSInconsistent
         (Right dir') -> do
           let dirContents = getDirContents dir
-          updatedDir <- updateDir dir' newDir xs
+          updatedDir <- updateDir dir' nDir xs
           let newDirContents = Map.insert x (Right updatedDir) dirContents
           return dir'{getDirContents = newDirContents}
 
--- TODO : "../.." и тому подобное
-runImmutableFunction :: (Directory -> [FilePath] -> (ExceptState a)) -> FilePath
-                     -> (ExceptState a)
+runImmutableFunction :: forall a. (Directory -> [FilePath] -> (ExceptState a))
+                     -> FilePath -> (ExceptState a)
 runImmutableFunction foo path = do
-  FSState{fileSystem = fs} <- get
+  FSState{curDirectoryPath = curPath} <- get
   if (isAbsolute path) then do
-    let splittedPath = tail $ getSplittedPath path
-    foo (getRootDirectory fs) splittedPath
+    let normalisedPath = customNormalise path
+    run normalisedPath
   else do
-    curDir <- getCurFSDirectory
-    let splittedPath = getSplittedPath path
-    foo curDir splittedPath
+    let normalisedPath = customNormalise $ curPath </> path
+    run normalisedPath
+  where
+    run :: Maybe FilePath -> ExceptState a
+    run maybePath = do
+      FSState{fileSystem = fs} <- get
+      case maybePath of
+        (Just p) -> do
+          let splittedPath = getSplittedPath p
+          foo (getRootDirectory fs) splittedPath
+        _           -> throwE $ NotValidPath path
 
--- Sometimes can "predict" what user meant
+customNormalise :: FilePath -> Maybe FilePath
+customNormalise = removeDots . (dropTrailingPathSeparator . normalise)
+  where
+    removeDots path =
+      case guess_dotdot path of
+        Nothing  -> Nothing
+        (Just a) ->
+          case a of
+            ('.' : chs) -> Just chs
+            _           -> Just a
+
 getSplittedPath :: FilePath -> [FilePath]
-getSplittedPath = splitDirectories . dropTrailingPathSeparator
+getSplittedPath path = do
+  let splittedPath = splitDirectories $ dropTrailingPathSeparator path
+  case splittedPath of
+    ("/" : xs) -> xs
+    _          -> splittedPath

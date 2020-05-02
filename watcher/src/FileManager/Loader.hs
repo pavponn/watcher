@@ -12,7 +12,6 @@ import System.FilePath.Posix (dropTrailingPathSeparator, splitFileName, (</>))
 
 getFileSystem :: FilePath -> IO FileSystem
 getFileSystem dirPath = do
-
    let (path, name) = splitFileName $ dropTrailingPathSeparator dirPath
    directory <- visitDirectory path name
    return $ FileSystem directory (path </> name)
