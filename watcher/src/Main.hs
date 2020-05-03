@@ -7,8 +7,9 @@ import Control.Monad.Trans.Except
 import qualified Data.ByteString.Char8 as B
 import Data.Semigroup ((<>))
 import FileManager.FileSystemTypes
-import FileManager.Handlers (FSState (..), createDirectory, createFile, directoryContent,
-                             fileContent, findFile, goToDirectory, information)
+import FileManager.Handlers (createDirectory, createFile, debugFS, directoryContent,
+                             fileContent, findFile, goToDirectory, information,
+                             removeFileOrDirectory, writeToFile)
 import FileManager.Loader (getFileSystem)
 import Options.Applicative
 import System.Directory (makeAbsolute)
@@ -25,10 +26,13 @@ data Command
   | Cd FilePath
   | Ls FilePath
   | Cat String
+  | Remove FilePath
   | FindFile String
   | CreateFile String
   | CreateFolder String
   | Information FilePath
+  | WriteToFile FilePath String
+  | Debug
 
 main :: IO ()
 main = do
@@ -50,17 +54,26 @@ runInteractive st = do
       runInteractive st
     Right opts ->
       case optCommand opts of
-        Dir                 -> handleOperationString directoryContent ""
-        Exit                -> putStrLn "Bye-bye"
-        (Cd path)           -> handleOperationEmpty  goToDirectory path
-        (Ls path)           -> handleOperationString directoryContent path
-        (Cat path)          -> handleOperationByteString fileContent path
-        (FindFile name)     -> handleOperationString findFile name
-        (CreateFile name)   -> handleOperationEmpty  createFile name
-        (Information path)  -> handleOperationString information path
-        (CreateFolder name) -> handleOperationEmpty  createDirectory name
+        Debug                   -> handleOperationString debugFS ""
+        Dir                     -> handleOperationString directoryContent ""
+        Exit                    -> putStrLn "Bye-bye"
+        (Cd path)               -> handleOperationVoid  goToDirectory path
+        (Ls path)               -> handleOperationString directoryContent path
+        (Cat path)              -> handleOperationByteString fileContent path
+        (Remove path)           -> handleOperationVoid removeFileOrDirectory path
+        (FindFile name)         -> handleOperationString findFile name
+        (CreateFile name)       -> handleOperationVoid createFile name
+        (Information path)      -> handleOperationString information path
+        (CreateFolder name)     -> handleOperationVoid createDirectory name
+        (WriteToFile path cont) -> handleOperationVoid2 writeToFile (B.pack cont) path
   where
-    handleOperationEmpty foo arg = do
+    handleOperationVoid2 foo arg1 arg2 = do
+      let (res, newState) = runState (runExceptT $ foo arg1 arg2) st
+      case res of
+        (Left err) -> putStrLn $ show err
+        (Right _ ) -> return ()
+      runInteractive newState
+    handleOperationVoid foo arg = do
       let (res, newState) = runState (runExceptT $ foo arg) st
       case res of
         (Left err) -> putStrLn $ show err
@@ -104,10 +117,13 @@ programOptions =
     <> cdCommand
     <> lsCommand
     <> catCommand
+    <> removeCommand
     <> findFileCommand
     <> createFileCommand
     <> createFolderCommand
     <> informationCommand
+    <> writeToFileCommand
+    <> debugCommand
     )
   where
     dirCommand :: Mod CommandFields Command
@@ -130,6 +146,10 @@ programOptions =
     catCommand = command
       "cat"
       (info catOptions (progDesc "show content of specified file"))
+    removeCommand :: Mod CommandFields Command
+    removeCommand = command
+      "remove"
+      (info removeOptions (progDesc "remove specified file/directory"))
     findFileCommand :: Mod CommandFields Command
     findFileCommand = command
       "find-file"
@@ -146,6 +166,10 @@ programOptions =
     informationCommand = command
       "information"
       (info informationOptions (progDesc "show information for specified folder/file"))
+    writeToFileCommand :: Mod CommandFields Command
+    writeToFileCommand = command
+      "write-file"
+      (info writeToFileOptions (progDesc "write text into file"))
     cdOptions :: Parser Command
     cdOptions = Cd <$>
       strArgument (metavar "PATH" <> help "Path to folder where to go")
@@ -155,6 +179,8 @@ programOptions =
     catOptions :: Parser Command
     catOptions = Cat <$>
       strArgument (metavar "PATH" <> help "Path to file to show contents for")
+    removeOptions = Remove <$>
+      strArgument (metavar "PATH" <> help "Path to file/directory to be deleted")
     findFileOptions :: Parser Command
     findFileOptions = FindFile <$>
       strArgument (metavar "NAME" <> help "Name of file to be found")
@@ -167,6 +193,14 @@ programOptions =
     informationOptions :: Parser Command
     informationOptions = Information <$>
       strArgument (metavar "PATH" <> help "Path to file/folder to show information for")
+    writeToFileOptions :: Parser Command
+    writeToFileOptions = WriteToFile <$>
+      strArgument (metavar "PATH" <> help "Path to file to write text in") <*>
+      strArgument (metavar "TEXT" <> help "Text to write in file")
+    debugCommand :: Mod CommandFields Command
+    debugCommand = command
+      "debug"
+      (info (pure Debug) (progDesc "debug"))
 
 customHandleParserResult :: ParserResult a -> IO (Either ErrorMessage a)
 customHandleParserResult (Success a) = return $ Right a

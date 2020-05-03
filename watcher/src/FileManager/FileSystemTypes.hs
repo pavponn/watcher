@@ -42,6 +42,23 @@ data FileSystem = FileSystem
   , getPathToRootDirectory :: FilePath
   } deriving (Show)
 
+data FSState = FSState
+  { fileSystem       :: FileSystem
+  , curDirectoryPath :: FilePath
+  } deriving (Show)
+
+data FSException
+  = NoSuchFileOrDirectory
+  | NotDirectory
+  | NotFile
+  | FileNotFound
+  | DuplicateFileOrDirectory String
+  | NotSupportedOperation String
+  | FSInconsistent
+  | NotValidPath String
+  | UnsupportedOperationArgument String
+  deriving (Show)
+
 instance Show File where
   show (File name info _) =
     "File { getFileName = " ++ name  ++ ", getFileInfo = " ++ show info ++ "}"
