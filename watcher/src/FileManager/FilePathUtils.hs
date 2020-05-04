@@ -1,6 +1,7 @@
 module FileManager.FilePathUtils
   ( getNormalisedPath
   , getNormalisedSplittedPath
+  , getFSPathForDirectory
   ) where
 
 import Control.Monad.State
@@ -9,7 +10,12 @@ import Data.List (intercalate, unfoldr)
 import FileManager.FileSystemTypes
 import System.FilePath (isPathSeparator, pathSeparator)
 import System.FilePath.Posix (dropTrailingPathSeparator, joinPath, normalise,
-                              splitDirectories)
+                              splitDirectories, makeRelative)
+
+getFSPathForDirectory :: Directory -> ExceptT FSException (State FSState) FilePath
+getFSPathForDirectory dir = do
+  FSState{curFileSystem = fs} <- get
+  return $ dotToEmpty $ makeRelative (getPathToRootDirectory fs) (getDirPath $ getDirInfo dir)
 
 getNormalisedPath :: FilePath -> ExceptT FSException (State FSState) FilePath
 getNormalisedPath path = do
@@ -20,11 +26,14 @@ getNormalisedSplittedPath :: FilePath -> ExceptT FSException (State FSState) [Fi
 getNormalisedSplittedPath path = do
   case customNormalise path of
     Nothing   -> throwE $ NotValidPath path
-    (Just np) -> return $ getSplittedPath $ (\x -> if x=="." then "" else x) np
+    (Just np) -> return $ getSplittedPath $ np
 
 customNormalise :: FilePath -> Maybe FilePath
-customNormalise = guess_dotdot . (dropTrailingPathSeparator . normalise)
+customNormalise path =
+  dotToEmpty <$> (guess_dotdot . (dropTrailingPathSeparator . normalise)) path
 
+dotToEmpty :: FilePath -> FilePath
+dotToEmpty = \x -> if x == "." then "" else x
 
 getSplittedPath :: FilePath -> [FilePath]
 getSplittedPath path = do
@@ -34,7 +43,6 @@ getSplittedPath path = do
     _          -> splittedPath
 
 -- Code below is a copy-paste from System.Path.NameManip
-
 
 guess_dotdot :: String -> Maybe String
 guess_dotdot = fmap unslice_path . guess_dotdot_comps . slice_path

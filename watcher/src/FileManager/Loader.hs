@@ -21,22 +21,15 @@ visitDirectory path name = do
   let actualPath = path </> name
   permissions <- getPermissions actualPath
   dirSize <- getFileSize actualPath
-  let dirInfo = DirInfo
-                  { getDirSize = dirSize
-                  , getDirPath = actualPath
-                  , getDirPermissions = permissions
-                  }
+  let dirInfo = DirInfo dirSize actualPath permissions
   list <- listDirectory actualPath
   filesAndDirs <- filterM (\x -> not <$> pathIsSymbolicLink (actualPath </> x)) list
   dirs  <- filterM (\x -> doesDirectoryExist (actualPath </> x)) filesAndDirs
   files <- filterM (\x -> doesFileExist (actualPath </> x)) filesAndDirs
   contentDirectories <- zip dirs <$> (map Right) <$> mapM (visitDirectory actualPath) dirs
   contentFiles <- zip files <$> (map Left) <$> mapM (visitFile actualPath) files
-  return $ Directory
-             { getDirName = name
-             , getDirInfo = dirInfo
-             , getDirContents = Map.fromList $ contentDirectories ++ contentFiles
-             }
+  let dirContents = Map.fromList $ contentDirectories ++ contentFiles
+  return $ Directory name dirInfo dirContents Nothing
 
 visitFile :: FilePath -> FilePath -> IO File
 visitFile path name = do
@@ -52,8 +45,4 @@ visitFile path name = do
                    , getFilePermissions = permissions
                    , getFileModificationTime = modificationTime
                    }
-  return $ File
-             { getFileName = name
-             , getFileInfo = fileInfo
-             , getFileData = fileData
-             }
+  return $ File name fileInfo fileData

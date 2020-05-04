@@ -1,16 +1,15 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Main where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
 import qualified Data.ByteString.Char8 as B
 import Data.Semigroup ((<>))
+import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, directoryContent,
+                                        fileContent, findFile, goToDirectory, information,
+                                        removeFileOrDirectory, writeToFile)
 import FileManager.FileSystemTypes
-import FileManager.Handlers (createDirectory, createFile, debugFS, directoryContent,
-                             fileContent, findFile, goToDirectory, information,
-                             removeFileOrDirectory, writeToFile)
 import FileManager.Loader (getFileSystem)
+import FileManager.VCSHandlers (initVCS)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
@@ -32,13 +31,14 @@ data Command
   | CreateFolder String
   | Information FilePath
   | WriteToFile FilePath String
+  | VCSInit
   | Debug
 
 main :: IO ()
 main = do
   a <- (\x -> if x == [] then "" else head x) <$> getArgs
   fs <- makeAbsolute a >>= \curDir -> getFileSystem curDir
-  let initState = FSState{fileSystem = fs, curDirectoryPath = ""}
+  let initState = FSState fs "" Nothing
   runInteractive initState
   return ()
 
@@ -66,6 +66,7 @@ runInteractive st = do
         (Information path)      -> handleOperationString information path
         (CreateFolder name)     -> handleOperationVoid createDirectory name
         (WriteToFile path cont) -> handleOperationVoid2 writeToFile (B.pack cont) path
+        VCSInit                 -> handleOperationString0 initVCS
   where
     handleOperationVoid2 foo arg1 arg2 = do
       let (res, newState) = runState (runExceptT $ foo arg1 arg2) st
@@ -78,6 +79,12 @@ runInteractive st = do
       case res of
         (Left err) -> putStrLn $ show err
         (Right _ ) -> return ()
+      runInteractive newState
+    handleOperationString0 foo = do
+      let (res, newState) = runState (runExceptT foo) st
+      case res of
+        (Left err) -> putStrLn $ show err
+        (Right s ) -> putStrLn s
       runInteractive newState
     handleOperationString foo arg = do
       let (res, newState) = runState (runExceptT $ foo arg) st
@@ -93,7 +100,7 @@ runInteractive st = do
       runInteractive newState
 
 printPrompt :: FSState -> IO ()
-printPrompt FSState{fileSystem = fs, curDirectoryPath = path} = do
+printPrompt FSState{curFileSystem = fs, curDirectoryPath = path} = do
   putStr $ "[" ++ (getPathToRootDirectory fs) ++ "/" ++ path ++ "]: "
   hFlush stdout
 
@@ -107,7 +114,7 @@ optsParser =
     )
 
 versionOption :: Parser (a -> a)
-versionOption = infoOption "0.1" (long "version" <> help "Show version")
+versionOption = infoOption "0.1" (short 'v' <> long "version" <> help "show version")
 
 programOptions :: Parser Opts
 programOptions =
@@ -123,6 +130,7 @@ programOptions =
     <> createFolderCommand
     <> informationCommand
     <> writeToFileCommand
+    <> vcsInitCommand
     <> debugCommand
     )
   where
@@ -170,6 +178,9 @@ programOptions =
     writeToFileCommand = command
       "write-file"
       (info writeToFileOptions (progDesc "write text into file"))
+    vcsInitCommand = command
+      "vcs-init"
+      (info (pure VCSInit) (progDesc "init VCS in current directory"))
     cdOptions :: Parser Command
     cdOptions = Cd <$>
       strArgument (metavar "PATH" <> help "Path to folder where to go")
@@ -197,6 +208,7 @@ programOptions =
     writeToFileOptions = WriteToFile <$>
       strArgument (metavar "PATH" <> help "Path to file to write text in") <*>
       strArgument (metavar "TEXT" <> help "Text to write in file")
+
     debugCommand :: Mod CommandFields Command
     debugCommand = command
       "debug"

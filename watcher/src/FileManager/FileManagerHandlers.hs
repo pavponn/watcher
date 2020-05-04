@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module FileManager.Handlers
+module FileManager.FileManagerHandlers
   ( createDirectory
   , createFile
   , findFile
@@ -22,6 +22,7 @@ import Data.Either (lefts, rights)
 import qualified Data.Map.Strict as Map
 import FileManager.FilePathUtils
 import FileManager.FileSystemTypes
+import FileManager.FileSystemUtils
 import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute, joinPath, splitFileName)
 
@@ -29,8 +30,11 @@ type ExceptState a = ExceptT FSException (State FSState) a
 
 debugFS :: FilePath -> ExceptT FSException (State FSState) FilePath
 debugFS _ = do
-  FSState{fileSystem = fs, curDirectoryPath = curPath}<- get
-  return $ "PATH TO CUR DIR : " ++  curPath ++ "\n" ++ "ROOTDIR" ++ (show $ getDirInfo $ getRootDirectory fs)
+  FSState{curFileSystem = fs, curDirectoryPath = curPath, curVCSPath = vcsPath}<- get
+  return $ "PATH TO CUR DIR : " ++  curPath ++ "\n" ++
+             "CUR VCS PATH : " ++ (show vcsPath) ++ "\n" ++
+               "ROOT_DIR:\n" ++ (show $ getDirInfo $ getRootDirectory fs) ++ "\n" ++
+               "VCS IN ROOT DIR: " ++ (show $ getVCSStorage $ getRootDirectory fs)
 
 removeFileOrDirectory :: FilePath -> ExceptT FSException (State FSState) ()
 removeFileOrDirectory path = do
@@ -53,7 +57,7 @@ removeFileOrDirectory path = do
 
 createDirectory :: String -> ExceptT FSException (State FSState) ()
 createDirectory name = do
-  FSState{fileSystem = fs, curDirectoryPath = relDirPath} <- get
+  FSState{curFileSystem = fs, curDirectoryPath = relDirPath} <- get
   curDir <- getCurFSDirectory
   if (Map.member name (getDirContents curDir)) then
     throwE $ DuplicateFileOrDirectory name
@@ -64,7 +68,7 @@ createDirectory name = do
 
 createFile :: String -> ExceptT FSException (State FSState) ()
 createFile name = do
-  FSState{fileSystem = fs, curDirectoryPath = relDirPath} <- get
+  FSState{curFileSystem = fs, curDirectoryPath = relDirPath} <- get
   curDir <- getCurFSDirectory
   if (Map.member name (getDirContents curDir)) then
     throwE $ DuplicateFileOrDirectory name
@@ -114,26 +118,35 @@ writeToFile content path = do
 
 goToDirectory :: FilePath -> ExceptT FSException (State FSState) ()
 goToDirectory path = do
-  FSState{fileSystem = fs, curDirectoryPath = curPath} <- get
+  FSState{curFileSystem = fs, curDirectoryPath = curPath} <- get
   if (isAbsolute path) then do
     normSplittedPath <- getNormalisedSplittedPath path
     let absFSPath = joinPath normSplittedPath
-    goToDirectoryInner absFSPath (getRootDirectory fs) normSplittedPath
+    goToDirectoryInner absFSPath Nothing (getRootDirectory fs) normSplittedPath
   else do
     normSplittedPath <- getNormalisedSplittedPath (curPath </> path)
     let absFSPath = joinPath normSplittedPath
-    goToDirectoryInner absFSPath (getRootDirectory fs) normSplittedPath
+    goToDirectoryInner absFSPath Nothing (getRootDirectory fs) normSplittedPath
   where
-    goToDirectoryInner :: FilePath -> Directory -> [FilePath]
+    goToDirectoryInner :: FilePath -> Maybe FilePath -> Directory -> [FilePath]
                        -> ExceptT FSException (State FSState) ()
-    goToDirectoryInner newPath _ [] = do
+    goToDirectoryInner newPath maybeVCSPath dir [] = do
       st@FSState{} <- get
-      put st {curDirectoryPath = newPath}
-    goToDirectoryInner newPath dir (x:xs) = do
+      case getVCSStorage dir of
+        Nothing  -> put st{curDirectoryPath = newPath, curVCSPath = maybeVCSPath}
+        (Just _) -> do
+          newVCSPath <- getFSPathForDirectory dir
+          put st{curDirectoryPath = newPath, curVCSPath = (Just newVCSPath)}
+    goToDirectoryInner newPath maybeVCSPath dir (x:xs) = do
       fileOrDir <- lookupInDirectory dir x
       case fileOrDir of
         (Left _    ) -> throwE NotDirectory
-        (Right dir') -> goToDirectoryInner newPath dir' xs
+        (Right dir') -> do
+          case getVCSStorage dir of
+            Nothing  -> goToDirectoryInner newPath maybeVCSPath dir' xs
+            (Just _) -> do
+              newVCSPath <- getFSPathForDirectory dir
+              goToDirectoryInner newPath (Just newVCSPath) dir' xs
 
 fileContent :: FilePath -> ExceptT FSException (State FSState) B.ByteString
 fileContent path = runImmutableFunction getFileContent path
@@ -185,74 +198,10 @@ directoryContent path = runImmutableFunction showContentInDirectory path
         (Left _    ) -> throwE NotDirectory
         (Right dir') -> showContentInDirectory dir' xs
 
-lookupInDirectory :: Directory -> String -> ExceptT FSException (State FSState) DirElement
-lookupInDirectory dir name =
-  case Map.lookup name (getDirContents dir) of
-    Nothing  -> throwE NoSuchFileOrDirectory
-    (Just a) -> return a
-
-getCurFSDirectory :: ExceptT FSException (State FSState) Directory
-getCurFSDirectory = do
-  FSState{curDirectoryPath = path} <- get
-  getDirectoryByPath path
-
-getDirectoryByPath :: FilePath -> ExceptT FSException (State FSState) Directory
-getDirectoryByPath path = do
-  FSState{fileSystem = fs} <- get
-  normSplittedPath <- getNormalisedSplittedPath path
-  getDir (getRootDirectory fs) normSplittedPath
-  where
-    getDir :: Directory -> [FilePath] -> ExceptT FSException (State FSState) Directory
-    getDir dir [] = return dir
-    getDir dir (x : xs) = do
-      fileOrDir <- lookupInDirectory dir x
-      case fileOrDir of
-        (Left _    ) -> throwE NoSuchFileOrDirectory
-        (Right dir') -> getDir dir' xs
-
-updatePathForRootDirectory :: ExceptT FSException (State FSState) ()
-updatePathForRootDirectory = do
-  st@FSState{fileSystem = fs, curDirectoryPath = path} <- get
-  normSplittedPath <- getNormalisedSplittedPath path
-  let newCurDirectory = helper "" normSplittedPath (getRootDirectory fs)
-  put st{curDirectoryPath = newCurDirectory}
-  where
-    helper :: FilePath -> [FilePath] -> Directory -> FilePath
-    helper acc [] _ = acc
-    helper acc (x : xs) dir = do
-      case (Map.lookup x (getDirContents dir)) of
-        Nothing  -> acc
-        (Just a) ->
-          case a of
-            (Left  _   ) -> acc
-            (Right dir') -> helper (acc </> x) xs dir'
-
-updateFileSystem :: FilePath -> Directory -> ExceptT FSException (State FSState) ()
-updateFileSystem path newDir = do
-  st@FSState{fileSystem = fs} <- get
-  let rootDir = getRootDirectory fs
-  normSplittedPath <- getNormalisedSplittedPath path
-  newRootDir <- updateDir rootDir newDir normSplittedPath
-  let newFs = fs{getRootDirectory = newRootDir}
-  put st{fileSystem = newFs}
-  where
-    updateDir :: Directory -> Directory -> [FilePath]
-              ->  ExceptT FSException (State FSState) Directory
-    updateDir _   nDir []     = return nDir
-    updateDir dir nDir (x:xs) = do
-      fileOrDir <- lookupInDirectory dir x
-      case fileOrDir of
-        (Left _    ) -> throwE FSInconsistent
-        (Right dir') -> do
-          let dirContents = getDirContents dir
-          updatedDir <- updateDir dir' nDir xs
-          let newDirContents = Map.insert x (Right updatedDir) dirContents
-          return dir{getDirContents = newDirContents}
-
 runImmutableFunction :: forall a. (Directory -> [FilePath] -> (ExceptState a))
                      -> FilePath -> (ExceptState a)
 runImmutableFunction foo path = do
-  FSState{fileSystem = fs, curDirectoryPath = curPath} <- get
+  FSState{curFileSystem = fs, curDirectoryPath = curPath} <- get
   if (isAbsolute path) then do
     normSplittedPath <- getNormalisedSplittedPath path
     foo (getRootDirectory fs) normSplittedPath

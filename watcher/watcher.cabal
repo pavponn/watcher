@@ -20,9 +20,11 @@ executable watcher
   hs-source-dirs:      src
   main-is:             Main.hs
   other-modules:       FileManager.FileSystemTypes
-                     , FileManager.Handlers
+                     , FileManager.FileManagerHandlers
                      , FileManager.Loader
                      , FileManager.FilePathUtils
+                     , FileManager.FileSystemUtils
+                     , FileManager.VCSHandlers
   -- other-extensions:
   ghc-options:         -Wall -Werror
   build-depends:       base >=4.9 && < 5
