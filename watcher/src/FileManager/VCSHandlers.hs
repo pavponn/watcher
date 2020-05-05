@@ -4,10 +4,12 @@ module FileManager.VCSHandlers
   , showCurVCS
   , updateInVCS
   , fileHistoryVCS
+  , fileVersionVCS
   )where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
+import qualified Data.ByteString as B
 import Data.Either (lefts, rights)
 import Data.List (concat, intercalate, isPrefixOf, sort)
 import qualified Data.Map.Strict as Map
@@ -92,6 +94,26 @@ fileHistoryVCS path = do
       let historyList = sort $  map (\(r, (_, s)) -> (r, s)) $ Map.toList fileHistory
       return $ intercalate "\n" $ map (\(r, s) -> (show r) ++ ". " ++ s) historyList
 
+fileVersionVCS :: (FilePath, Integer)
+               -> ExceptT FSException (State FSState) B.ByteString
+fileVersionVCS (path, index) = do
+  FSState{curDirectoryPath = curPath} <- get
+  if (isAbsolute path) then
+    fileVersionVCSInner path
+  else do
+    fileVersionVCSInner (curPath </> path)
+  where
+    fileVersionVCSInner :: FilePath -> ExceptT FSException (State FSState) B.ByteString
+    fileVersionVCSInner realPath = do
+      vcsPath <- getVCSPath
+      fileHistory <- getFileHistory vcsPath realPath
+      case Map.lookup index fileHistory of
+        (Just f) -> do
+          return $ (getFileData . fst) f
+        Nothing  -> do
+          throwE $ VCSException $ "No revision with index " ++ (show index) ++
+                                    " found for specified file "
+
 updateFile :: FilePath -> File -> String -> ExceptT FSException (State FSState) String
 updateFile vcsPath file msg = do
   dirVCS <- getDirectoryByPath vcsPath `catchE` (\_ -> throwE $ FSInconsistent)
@@ -170,4 +192,4 @@ getAllFilesInDirAndSubDirs :: Directory -> ExceptT FSException (State FSState) [
 getAllFilesInDirAndSubDirs curDir = do
   let dirElements = map (\x -> snd x) $ Map.toList $ getDirContents curDir
   filesInSubDir <- mapM getAllFilesInDirAndSubDirs (rights dirElements)
-  return $ (lefts dirElements) ++  (concat filesInSubDir)
+  return $ (lefts dirElements) ++ (concat filesInSubDir)

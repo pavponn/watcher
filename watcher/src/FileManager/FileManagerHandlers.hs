@@ -17,8 +17,8 @@ module FileManager.FileManagerHandlers
 import Control.Monad.State
 import Control.Monad.Trans.Except
 import qualified Data.ByteString as B
-import Data.List(intercalate)
 import Data.Either (lefts, rights)
+import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import FileManager.FilePathUtils
 import FileManager.FileSystemTypes

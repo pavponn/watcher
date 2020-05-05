@@ -9,7 +9,8 @@ import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, di
                                         removeFileOrDirectory, writeToFile)
 import FileManager.FileSystemTypes
 import FileManager.Loader (getFileSystem)
-import FileManager.VCSHandlers (addToVCS, fileHistoryVCS, initVCS, showCurVCS, updateInVCS)
+import FileManager.VCSHandlers (addToVCS, fileHistoryVCS, fileVersionVCS, initVCS, showCurVCS,
+                                updateInVCS)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
@@ -35,6 +36,7 @@ data Command
   | VCSAdd FilePath
   | VCSUpdate FilePath String
   | VCSHistory FilePath
+  | VCSCat FilePath Integer
   | Debug
   | ShowVCS
 
@@ -75,6 +77,7 @@ runInteractive st = do
         VCSAdd path           -> handleOperationString addToVCS path
         VCSUpdate path msg    -> handleOperationString updateInVCS (path, msg)
         VCSHistory path       -> handleOperationString fileHistoryVCS path
+        VCSCat path index     -> handleOperationByteString fileVersionVCS (path, index)
 
   where
     handleOperationVoid2 foo arg1 arg2 = do
@@ -143,6 +146,7 @@ programOptions =
     <> vcsAddCommand
     <> vcsUpdateCommand
     <> vcsHistoryCommand
+    <> vcsCatCommand
     <> showVCSCommand
     <> debugCommand
     )
@@ -207,6 +211,10 @@ programOptions =
     vcsHistoryCommand = command
       "vcs-history"
       (info vcsHistoryOptions (progDesc "update specified file in VCS"))
+    vcsCatCommand :: Mod CommandFields Command
+    vcsCatCommand = command
+      "vcs-cat"
+      (info vcsCatOptions (progDesc "show specified version of specified file in VCS"))
     cdOptions :: Parser Command
     cdOptions = Cd <$>
       strArgument (metavar "PATH" <> help "Path to folder where to go")
@@ -244,6 +252,10 @@ programOptions =
     vcsHistoryOptions :: Parser Command
     vcsHistoryOptions = VCSHistory <$>
       strArgument (metavar "PATH" <> help "Path to file/directory that is in VCS")
+    vcsCatOptions :: Parser Command
+    vcsCatOptions = VCSCat <$>
+      strArgument (metavar "PATH" <> help "Path to file that is in VCS") <*>
+      argument auto (metavar "INDEX" <> help "Index of file in vcs")
 
     debugCommand :: Mod CommandFields Command
     debugCommand = command
