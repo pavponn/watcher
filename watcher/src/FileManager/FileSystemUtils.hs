@@ -3,6 +3,7 @@ module FileManager.FileSystemUtils where
 import Control.Monad.State
 import Control.Monad.Trans.Except
 import qualified Data.Map.Strict as Map
+import Data.Maybe (isNothing)
 import FileManager.FilePathUtils
 import FileManager.FileSystemTypes
 import System.FilePath ((</>))
@@ -48,23 +49,27 @@ getDirectoryByPath path = do
     (Left  _  ) -> throwE NoSuchFileOrDirectory
     (Right dir) -> return dir
 
-
-updatePathForRootDirectory :: ExceptT FSException (State FSState) ()
-updatePathForRootDirectory = do
+updateSpecialPaths :: ExceptT FSException (State FSState) ()
+updateSpecialPaths = do
   st@FSState{curFileSystem = fs, curDirectoryPath = path} <- get
   normSplittedPath <- getNormalisedSplittedPath path
-  let newCurDirectory = helper "" normSplittedPath (getRootDirectory fs)
-  put st{curDirectoryPath = newCurDirectory}
+  let rootDir = getRootDirectory fs
+  let maybeStart = if (isNothing $ getVCSStorage rootDir) then Nothing else Just ""
+  let (newCurDirPath, newVCSPath)  = helper "" maybeStart normSplittedPath rootDir
+  put st{curDirectoryPath = newCurDirPath, curVCSPath = newVCSPath}
   where
-    helper :: FilePath -> [FilePath] -> Directory -> FilePath
-    helper acc [] _ = acc
-    helper acc (x : xs) dir = do
+    helper :: FilePath -> Maybe FilePath -> [FilePath] -> Directory -> (FilePath, Maybe FilePath)
+    helper acc maybePath []       _   = (acc, maybePath)
+    helper acc maybePath (x : xs) dir = do
       case (Map.lookup x (getDirContents dir)) of
-        Nothing  -> acc
+        Nothing -> (acc, maybePath)
         (Just a) ->
           case a of
-            (Left  _   ) -> acc
-            (Right dir') -> helper (acc </> x) xs dir'
+            (Left _    ) -> (acc, maybePath)
+            (Right dir') -> do
+              let newAcc = acc </> x
+              let maybePath' = if (isNothing $ getVCSStorage dir') then maybePath else Just newAcc
+              helper newAcc maybePath' xs dir'
 
 updateFileSystem :: FilePath -> Directory -> ExceptT FSException (State FSState) ()
 updateFileSystem path newDir = do
@@ -92,12 +97,12 @@ retractVCSStorage :: Directory -> ExceptT FSException (State FSState) VCSStorage
 retractVCSStorage dir = do
   let maybeStorage = getVCSStorage dir
   case maybeStorage of
-    Nothing  -> throwE $ VCSNotInitialised
+    Nothing  -> throwE $ VCSException "VCS isn't initialized"
     (Just s) -> return s
 
 getVCSPath :: ExceptT FSException (State FSState) FilePath
 getVCSPath = do
   FSState{curVCSPath = maybePath} <- get
   case maybePath of
-    Nothing  -> throwE $ UnsupportedOperation "Current directory is not a part of VCS"
+    Nothing  -> throwE $ ImpossibleToPerform "Current directory is not a part of VCS"
     (Just p) -> return p

@@ -80,7 +80,8 @@ data FSException
   | FSInconsistent
   | NotValidPath String
   | UnsupportedOperationArgument String
-  | VCSNotInitialised
+  | ImpossibleToPerform String
+  | VCSException String
   | Message String
   deriving (Show)
 

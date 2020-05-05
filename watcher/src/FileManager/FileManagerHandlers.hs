@@ -33,8 +33,7 @@ debugFS _ = do
   FSState{curFileSystem = fs, curDirectoryPath = curPath, curVCSPath = vcsPath}<- get
   return $ "PATH TO CUR DIR : " ++  curPath ++ "\n" ++
              "CUR VCS PATH : " ++ (show vcsPath) ++ "\n" ++
-               "ROOT_DIR:\n" ++ (show $ getDirInfo $ getRootDirectory fs) ++ "\n" ++
-               "VCS IN ROOT DIR: " ++ (show $ getVCSStorage $ getRootDirectory fs)
+               "ROOT_DIR:\n" ++ (show $ getDirInfo $ getRootDirectory fs) ++ "\n"
 
 removeFileOrDirectory :: FilePath -> ExceptT FSException (State FSState) ()
 removeFileOrDirectory path = do
@@ -53,7 +52,7 @@ removeFileOrDirectory path = do
         dir <- getDirectoryByPath pathToContDir
         let newContent = Map.delete name (getDirContents dir)
         updateFileSystem pathToContDir dir{getDirContents = newContent}
-        updatePathForRootDirectory
+        updateSpecialPaths
 
 createDirectory :: String -> ExceptT FSException (State FSState) ()
 createDirectory name = do

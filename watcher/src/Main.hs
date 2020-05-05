@@ -9,7 +9,7 @@ import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, di
                                         removeFileOrDirectory, writeToFile)
 import FileManager.FileSystemTypes
 import FileManager.Loader (getFileSystem)
-import FileManager.VCSHandlers (initVCS, addToVCS, showCurVCS)
+import FileManager.VCSHandlers (addToVCS, fileHistoryVCS, initVCS, showCurVCS, updateInVCS)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
@@ -33,6 +33,8 @@ data Command
   | WriteToFile FilePath String
   | VCSInit
   | VCSAdd FilePath
+  | VCSUpdate FilePath String
+  | VCSHistory FilePath
   | Debug
   | ShowVCS
 
@@ -56,21 +58,23 @@ runInteractive st = do
       runInteractive st
     Right opts ->
       case optCommand opts of
-        ShowVCS                 -> handleOperationString showCurVCS ""
-        Debug                   -> handleOperationString debugFS ""
-        Dir                     -> handleOperationString directoryContent ""
-        Exit                    -> putStrLn "Bye-bye"
-        (Cd path)               -> handleOperationVoid  goToDirectory path
-        (Ls path)               -> handleOperationString directoryContent path
-        (Cat path)              -> handleOperationByteString fileContent path
-        (Remove path)           -> handleOperationVoid removeFileOrDirectory path
-        (FindFile name)         -> handleOperationString findFile name
-        (CreateFile name)       -> handleOperationVoid createFile name
-        (Information path)      -> handleOperationString information path
-        (CreateFolder name)     -> handleOperationVoid createDirectory name
-        (WriteToFile path cont) -> handleOperationVoid2 writeToFile (B.pack cont) path
-        VCSInit                 -> handleOperationString0 initVCS
-        VCSAdd path             -> handleOperationString addToVCS path
+        ShowVCS               -> handleOperationString showCurVCS ""
+        Debug                 -> handleOperationString debugFS ""
+        Dir                   -> handleOperationString directoryContent ""
+        Exit                  -> putStrLn "Bye-bye"
+        Cd path               -> handleOperationVoid  goToDirectory path
+        Ls path               -> handleOperationString directoryContent path
+        Cat path              -> handleOperationByteString fileContent path
+        Remove path           -> handleOperationVoid removeFileOrDirectory path
+        FindFile name         -> handleOperationString findFile name
+        CreateFile name       -> handleOperationVoid createFile name
+        Information path      -> handleOperationString information path
+        CreateFolder name     -> handleOperationVoid createDirectory name
+        WriteToFile path cont -> handleOperationVoid2 writeToFile (B.pack cont) path
+        VCSInit               -> handleOperationString0 initVCS
+        VCSAdd path           -> handleOperationString addToVCS path
+        VCSUpdate path msg    -> handleOperationString updateInVCS (path, msg)
+        VCSHistory path       -> handleOperationString fileHistoryVCS path
 
   where
     handleOperationVoid2 foo arg1 arg2 = do
@@ -137,6 +141,8 @@ programOptions =
     <> writeToFileCommand
     <> vcsInitCommand
     <> vcsAddCommand
+    <> vcsUpdateCommand
+    <> vcsHistoryCommand
     <> showVCSCommand
     <> debugCommand
     )
@@ -192,7 +198,15 @@ programOptions =
     vcsAddCommand :: Mod CommandFields Command
     vcsAddCommand = command
       "vcs-add"
-      (info vcsAddOptions (progDesc "init VCS in current directory"))
+      (info vcsAddOptions (progDesc "add specified file/directory to VCS"))
+    vcsUpdateCommand :: Mod CommandFields Command
+    vcsUpdateCommand = command
+      "vcs-update"
+      (info vcsUpdateOptions (progDesc "update specified file in VCS"))
+    vcsHistoryCommand :: Mod CommandFields Command
+    vcsHistoryCommand = command
+      "vcs-history"
+      (info vcsHistoryOptions (progDesc "update specified file in VCS"))
     cdOptions :: Parser Command
     cdOptions = Cd <$>
       strArgument (metavar "PATH" <> help "Path to folder where to go")
@@ -223,6 +237,13 @@ programOptions =
     vcsAddOptions :: Parser Command
     vcsAddOptions = VCSAdd <$>
       strArgument (metavar "PATH" <> help "Path to file/directory to add into current VCS")
+    vcsUpdateOptions :: Parser Command
+    vcsUpdateOptions = VCSUpdate <$>
+      strArgument (metavar "PATH" <> help "Path to file to updaten in current VCS") <*>
+      strArgument (metavar "MESSAGE" <> help "Message to show for this update")
+    vcsHistoryOptions :: Parser Command
+    vcsHistoryOptions = VCSHistory <$>
+      strArgument (metavar "PATH" <> help "Path to file/directory that is in VCS")
 
     debugCommand :: Mod CommandFields Command
     debugCommand = command
