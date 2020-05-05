@@ -87,3 +87,17 @@ updateFileSystem path newDir = do
           updatedDir <- updateDir dir' nDir xs
           let newDirContents = Map.insert x (Right updatedDir) dirContents
           return dir{getDirContents = newDirContents}
+
+retractVCSStorage :: Directory -> ExceptT FSException (State FSState) VCSStorage
+retractVCSStorage dir = do
+  let maybeStorage = getVCSStorage dir
+  case maybeStorage of
+    Nothing  -> throwE $ VCSNotInitialised
+    (Just s) -> return s
+
+getVCSPath :: ExceptT FSException (State FSState) FilePath
+getVCSPath = do
+  FSState{curVCSPath = maybePath} <- get
+  case maybePath of
+    Nothing  -> throwE $ UnsupportedOperation "Current directory is not a part of VCS"
+    (Just p) -> return p

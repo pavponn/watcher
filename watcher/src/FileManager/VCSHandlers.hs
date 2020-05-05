@@ -56,26 +56,27 @@ addToVCS path = do
       else
         throwE $ UnsupportedOperation "Path to file/directory is not a part of VCS"
 
-    addFile :: FilePath -> File -> ExceptT FSException (State FSState) String
-    addFile vcsPath file = addFiles vcsPath [file]
+addFile :: FilePath -> File -> ExceptT FSException (State FSState) String
+addFile vcsPath file = addFiles vcsPath [file]
 
-    addDir :: FilePath -> Directory -> ExceptT FSException (State FSState) String
-    addDir vcsPath dir = do
-      allFiles <- getAllFilesInDirAndSubDirs dir
-      addFiles vcsPath allFiles
+addDir :: FilePath -> Directory -> ExceptT FSException (State FSState) String
+addDir vcsPath dir = do
+  allFiles <- getAllFilesInDirAndSubDirs dir
+  addFiles vcsPath allFiles
 
-    addFiles :: FilePath -> [File] -> ExceptT FSException (State FSState) String
-    addFiles vcsPath files = do
-      dirVCS <- getDirectoryByPath vcsPath `catchE` (\_ -> throwE $ FSInconsistent)
-      storage <- retractVCSStorage dirVCS `catchE` (\_ -> throwE $ FSInconsistent)
-      let rev = getRevisionsNum storage
-      let filesData = getVCSFiles storage
-      (newFilesData, msgs, upd) <- addAllToMap files rev filesData [] False
-      let newRev = if upd then rev + 1 else rev
-      let newStorage = storage{getVCSFiles = newFilesData, getRevisionsNum = newRev}
-      let newDir = dirVCS{getVCSStorage = Just newStorage}
-      updateFileSystem vcsPath newDir
-      return $ intercalate "\n" msgs
+addFiles :: FilePath -> [File] -> ExceptT FSException (State FSState) String
+addFiles vcsPath files = do
+  dirVCS <- getDirectoryByPath vcsPath `catchE` (\_ -> throwE $ FSInconsistent)
+  storage <- retractVCSStorage dirVCS `catchE` (\_ -> throwE $ FSInconsistent)
+  let rev = getRevisionsNum storage
+  let filesData = getVCSFiles storage
+  (newFilesData, msgs, upd) <- addAllToMap files rev filesData [] False
+  let newRev = if upd then rev + 1 else rev
+  let newStorage = storage{getVCSFiles = newFilesData, getRevisionsNum = newRev}
+  let newDir = dirVCS{getVCSStorage = Just newStorage}
+  updateFileSystem vcsPath newDir
+  return $ intercalate "\n" msgs
+
 
 
 addAllToMap :: [File] -> Integer -> MyMap -> [String] -> Bool -> ExceptT FSException (State FSState) (MyMap, [String], Bool)
@@ -98,17 +99,3 @@ getAllFilesInDirAndSubDirs curDir = do
   let dirElements = map (\x -> snd x) $ Map.toList $ getDirContents curDir
   filesInSubDir <- mapM getAllFilesInDirAndSubDirs (rights dirElements)
   return $ (lefts dirElements) ++  (concat filesInSubDir)
-
-retractVCSStorage :: Directory -> ExceptT FSException (State FSState) VCSStorage
-retractVCSStorage dir = do
-  let maybeStorage = getVCSStorage dir
-  case maybeStorage of
-    Nothing  -> throwE $ VCSNotInitialised
-    (Just s) -> return s
-
-getVCSPath :: ExceptT FSException (State FSState) FilePath
-getVCSPath = do
-  FSState{curVCSPath = maybePath} <- get
-  case maybePath of
-    Nothing  -> throwE $ UnsupportedOperation "Current directory is not a part of VCS"
-    (Just p) -> return p
