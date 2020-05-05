@@ -48,9 +48,9 @@ data Directory = Directory
 -- in VCS (globally) as 'numberOfRevisions', and files that are already in
 -- added to VCS with all their revisions.
 data VCSStorage = VCSStorage
-  { getVCSFiles     :: Map.Map FilePath (Map.Map Integer File)
+  { getVCSFiles     :: Map.Map FilePath (Map.Map Integer (File, String))
   , getRevisionsNum :: Integer
-  } deriving (Show)
+  }
 
 -- | Represents current FileSystem as root directory and path to it in a real
 -- file system.
@@ -80,6 +80,8 @@ data FSException
   | FSInconsistent
   | NotValidPath String
   | UnsupportedOperationArgument String
+  | VCSNotInitialised
+  | Message String
   deriving (Show)
 
 instance Show File where
@@ -102,6 +104,8 @@ instance Show DirInfo where
     , "Permissions: " ++ (show $ getDirPermissions dir)
     ]
 
+instance Show VCSStorage where
+  show storage = (show $ getRevisionsNum storage) ++ (show $ getVCSFiles storage)
 -- TODO time
 defaultNewFile :: String -> FilePath -> File
 defaultNewFile name path = do

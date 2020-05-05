@@ -9,7 +9,7 @@ import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, di
                                         removeFileOrDirectory, writeToFile)
 import FileManager.FileSystemTypes
 import FileManager.Loader (getFileSystem)
-import FileManager.VCSHandlers (initVCS)
+import FileManager.VCSHandlers (initVCS, addToVCS, showCurVCS)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
@@ -32,7 +32,9 @@ data Command
   | Information FilePath
   | WriteToFile FilePath String
   | VCSInit
+  | VCSAdd FilePath
   | Debug
+  | ShowVCS
 
 main :: IO ()
 main = do
@@ -54,6 +56,7 @@ runInteractive st = do
       runInteractive st
     Right opts ->
       case optCommand opts of
+        ShowVCS                 -> handleOperationString showCurVCS ""
         Debug                   -> handleOperationString debugFS ""
         Dir                     -> handleOperationString directoryContent ""
         Exit                    -> putStrLn "Bye-bye"
@@ -67,6 +70,8 @@ runInteractive st = do
         (CreateFolder name)     -> handleOperationVoid createDirectory name
         (WriteToFile path cont) -> handleOperationVoid2 writeToFile (B.pack cont) path
         VCSInit                 -> handleOperationString0 initVCS
+        VCSAdd path             -> handleOperationString addToVCS path
+
   where
     handleOperationVoid2 foo arg1 arg2 = do
       let (res, newState) = runState (runExceptT $ foo arg1 arg2) st
@@ -131,6 +136,8 @@ programOptions =
     <> informationCommand
     <> writeToFileCommand
     <> vcsInitCommand
+    <> vcsAddCommand
+    <> showVCSCommand
     <> debugCommand
     )
   where
@@ -178,9 +185,14 @@ programOptions =
     writeToFileCommand = command
       "write-file"
       (info writeToFileOptions (progDesc "write text into file"))
+    vcsInitCommand :: Mod CommandFields Command
     vcsInitCommand = command
       "vcs-init"
       (info (pure VCSInit) (progDesc "init VCS in current directory"))
+    vcsAddCommand :: Mod CommandFields Command
+    vcsAddCommand = command
+      "vcs-add"
+      (info vcsAddOptions (progDesc "init VCS in current directory"))
     cdOptions :: Parser Command
     cdOptions = Cd <$>
       strArgument (metavar "PATH" <> help "Path to folder where to go")
@@ -208,11 +220,19 @@ programOptions =
     writeToFileOptions = WriteToFile <$>
       strArgument (metavar "PATH" <> help "Path to file to write text in") <*>
       strArgument (metavar "TEXT" <> help "Text to write in file")
+    vcsAddOptions :: Parser Command
+    vcsAddOptions = VCSAdd <$>
+      strArgument (metavar "PATH" <> help "Path to file/directory to add into current VCS")
 
     debugCommand :: Mod CommandFields Command
     debugCommand = command
       "debug"
       (info (pure Debug) (progDesc "debug"))
+
+    showVCSCommand :: Mod CommandFields Command
+    showVCSCommand = command
+        "show"
+        (info (pure ShowVCS) (progDesc "show vcs"))
 
 customHandleParserResult :: ParserResult a -> IO (Either ErrorMessage a)
 customHandleParserResult (Success a) = return $ Right a

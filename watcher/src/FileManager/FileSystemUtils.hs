@@ -48,19 +48,6 @@ getDirectoryByPath path = do
     (Left  _  ) -> throwE NoSuchFileOrDirectory
     (Right dir) -> return dir
 
--- getDirectoryByPath :: FilePath -> ExceptT FSException (State FSState) Directory
--- getDirectoryByPath path = do
---   FSState{curFileSystem = fs} <- get
---   normSplittedPath <- getNormalisedSplittedPath path
---   getDir (getRootDirectory fs) normSplittedPath
---   where
---     getDir :: Directory -> [FilePath] -> ExceptT FSException (State FSState) Directory
---     getDir dir [] = return dir
---     getDir dir (x : xs) = do
---       fileOrDir <- lookupInDirectory dir x
---       case fileOrDir of
---         (Left  _   ) -> throwE NoSuchFileOrDirectory
---         (Right dir') -> getDir dir' xs
 
 updatePathForRootDirectory :: ExceptT FSException (State FSState) ()
 updatePathForRootDirectory = do

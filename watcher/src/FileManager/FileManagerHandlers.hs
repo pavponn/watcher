@@ -92,7 +92,7 @@ findFile fileName = do
       let filesInDir =
             map (\x -> getFilePath $ getFileInfo x)
               (filter (\x -> (getFileName x) == name) $ lefts dirElements)
-      let subDirs = rights $ dirElements
+      let subDirs = rights dirElements
       let filesInSubDir = concat $ map (searchForFileInDirectory name) subDirs
       filesInDir ++ filesInSubDir
 
