@@ -10,7 +10,7 @@ import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, di
 import FileManager.FileSystemTypes
 import FileManager.Loader (getFileSystem)
 import FileManager.VCSHandlers (addToVCS, fileHistoryVCS, fileVersionVCS, initVCS, showCurVCS,
-                                updateInVCS)
+                                updateInVCS, allHistoryVCS)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
@@ -37,6 +37,7 @@ data Command
   | VCSUpdate FilePath String
   | VCSHistory FilePath
   | VCSCat FilePath Integer
+  | VCSShowAll
   | Debug
   | ShowVCS
 
@@ -78,6 +79,7 @@ runInteractive st = do
         VCSUpdate path msg    -> handleOperationString updateInVCS (path, msg)
         VCSHistory path       -> handleOperationString fileHistoryVCS path
         VCSCat path index     -> handleOperationByteString fileVersionVCS (path, index)
+        VCSShowAll            -> handleOperationString0 allHistoryVCS
 
   where
     handleOperationVoid2 foo arg1 arg2 = do
@@ -147,6 +149,7 @@ programOptions =
     <> vcsUpdateCommand
     <> vcsHistoryCommand
     <> vcsCatCommand
+    <> vcsShowAllCommand
     <> showVCSCommand
     <> debugCommand
     )
@@ -215,6 +218,10 @@ programOptions =
     vcsCatCommand = command
       "vcs-cat"
       (info vcsCatOptions (progDesc "show specified version of specified file in VCS"))
+    vcsShowAllCommand :: Mod CommandFields Command
+    vcsShowAllCommand = command
+      "vcs-show-all"
+      (info (pure VCSShowAll) (progDesc "show all VCS history"))
     cdOptions :: Parser Command
     cdOptions = Cd <$>
       strArgument (metavar "PATH" <> help "Path to folder where to go")

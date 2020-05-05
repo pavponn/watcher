@@ -5,6 +5,7 @@ module FileManager.VCSHandlers
   , updateInVCS
   , fileHistoryVCS
   , fileVersionVCS
+  , allHistoryVCS
   )where
 
 import Control.Monad.State
@@ -78,6 +79,18 @@ updateInVCS (path, message) = do
             (Right _  ) -> throwE $ UnsupportedOperation "Can't update directories"
         else
           throwE $ ImpossibleToPerform "Path to file/directory is not a part of VCS"
+
+allHistoryVCS :: ExceptT FSException (State FSState) String
+allHistoryVCS = do
+  vcsPath <- getVCSPath
+  vcsDir <- getDirectoryByPath vcsPath `catchE` (\_ -> throwE $ FSInconsistent)
+  storage <- retractVCSStorage vcsDir  `catchE` (\_ -> throwE $ FSInconsistent)
+  let maps = Map.elems $ getVCSFiles storage
+  let list = sort $ map (\(i, (f, m)) -> (i, m, getFilePath $ getFileInfo f)) $
+                      concat $ map Map.toList maps
+  return $ intercalate "\n" $
+            map (\(i, m, n) -> (show i) ++ ". " ++ m ++ "(" ++ n ++ ") ") list
+
 
 fileHistoryVCS :: FilePath -> ExceptT FSException (State FSState) String
 fileHistoryVCS path = do
