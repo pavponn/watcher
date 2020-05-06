@@ -9,7 +9,7 @@ module FileManager.VCSHandlers
   , removeFromVCS
   , removeFileRevFromVCS
   , mergeFileRevsVCS
-  )where
+  ) where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
@@ -125,7 +125,7 @@ removeFromVCS path = do
 
 -- | Removes specified revision of specified file from VCS and returns operation's status message.
 -- If there are no more revisions stored, deletes file from VCS. Updates state.
---  Throws `VCSException` if there is no such file in VCS or there is no such revisiom,
+-- Throws `VCSException` if there is no such file in VCS or there is no such revision,
 -- `NotValidPath` if path is invalid, `ImpossibleToPerform`
 -- if current directory isn't a part of VCS.
 removeFileRevFromVCS :: (FilePath, Integer) -> ExceptState String
@@ -155,6 +155,12 @@ removeFileRevFromVCS (path, index) = do
       updateFileSystem vcsPath newDir
       return $ "Deleted version with index " ++ (show index) ++ "of file" ++ absPath
 
+-- | Merges two revisions of one file from VCS according to passed
+-- `strategy` and writes result to specified file.
+-- Throws `VCSException` if there is no such file in VCS or there is no such revision
+-- or strategy is not defined, `NotValidPath` if path is invalid, `ImpossibleToPerform`
+-- if current directory isn't a part of VCS. If file has been deleted from
+-- file system but not VCS, throws `NoSuchFileOrDirectory`.
 mergeFileRevsVCS :: (FilePath, Integer, Integer, String) -> ExceptState String
 mergeFileRevsVCS (path, index1, index2, strategy) = do
   FSState{curDirectoryPath = curPath} <- get
@@ -179,7 +185,7 @@ mergeFileRevsVCS (path, index1, index2, strategy) = do
       let left  = (getFileData . fst) $ fileRevisions Map.! index1
       let right = (getFileData . fst) $ fileRevisions Map.!index2
       case strategy of
-        "left"  -> writeToFile (left, path) >> return "Merged!"
+        "left"  -> writeToFile (left, path)  >> return "Merged!"
         "right" -> writeToFile (right, path) >> return "Merged!"
         "both"  -> do
           writeToFile (B.concat [left, B.pack "\n>>>>\n", right], path)
