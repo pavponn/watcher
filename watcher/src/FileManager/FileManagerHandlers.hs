@@ -11,8 +11,7 @@ module FileManager.FileManagerHandlers
   , writeToFile
   , removeFileOrDirectory
   , debugFS
-  )
-  where
+  ) where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
@@ -20,6 +19,7 @@ import qualified Data.ByteString as B
 import Data.Either (lefts, rights)
 import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
+import Data.Time.Clock (UTCTime (..))
 import FileManager.FilePathUtils
 import FileManager.FileSystemTypes
 import FileManager.FileSystemUtils
@@ -73,14 +73,14 @@ createDirectory name = do
 -- | Creates new file in current directory with specified name.
 -- Updates current state (file system). Throws `DuplicateFileOrDirectory`if
 -- file/directory with providied name already exists.
-createFile :: String -> ExceptState ()
-createFile name = do
+createFile :: (String, UTCTime) -> ExceptState ()
+createFile (name, time) = do
   FSState{curFileSystem = fs, curDirectoryPath = relDirPath} <- get
   curDir <- getCurFSDirectory
   if (Map.member name (getDirContents curDir)) then
     throwE $ DuplicateFileOrDirectory name
   else do
-    let newFile = defaultNewFile name ((getPathToRootDirectory fs) </> relDirPath)
+    let newFile = defaultNewFile name ((getPathToRootDirectory fs) </> relDirPath) time
     let newDirContents = Map.insert name (Left newFile) (getDirContents curDir)
     updateFileSystem relDirPath curDir{getDirContents = newDirContents}
 
@@ -108,8 +108,8 @@ findFile fileName = do
 -- this file's content. Updates state (file system). Throws `NotFile` if
 -- provided path is not a path to file. Throws `NoSuchFileOrDirectory`
 -- if there is no such file, `NotValidPath` if path is invalid.
-writeToFile :: (B.ByteString, FilePath) -> ExceptState ()
-writeToFile (content, path) = do
+writeToFile :: (B.ByteString, FilePath, UTCTime) -> ExceptState ()
+writeToFile (content, path, curTime) = do
   if (isAbsolute path) then do
     writeToFileInner path
   else do
@@ -124,7 +124,12 @@ writeToFile (content, path) = do
       case (fileOrDir) of
         (Right _  ) -> throwE NotFile
         (Left file) -> do
-          let modifiedFile = file{getFileData = content}
+          let fileInfo = getFileInfo file
+          let newFileInfo = fileInfo
+                              { getFileSizeBytes = (toInteger . B.length) content
+                              , getFileModificationTime = curTime
+                              }
+          let modifiedFile = file{getFileData = content, getFileInfo = newFileInfo}
           let newDirContents = Map.insert name (Left modifiedFile) (getDirContents dir)
           updateFileSystem pathToContDir dir{getDirContents = newDirContents}
 

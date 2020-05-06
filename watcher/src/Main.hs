@@ -2,6 +2,7 @@ module Main where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
+import Data.Time.Clock (getCurrentTime)
 import qualified Data.ByteString.Char8 as B
 import Data.Semigroup ((<>))
 import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, directoryContent,
@@ -10,8 +11,7 @@ import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, di
 import FileManager.FileSystemTypes
 import FileManager.Loader (getFileSystem)
 import FileManager.VCSHandlers (addToVCS, allHistoryVCS, fileHistoryVCS, fileVersionVCS, initVCS,
-                                mergeFileRevsVCS, removeFileRevFromVCS, removeFromVCS, showCurVCS,
-                                updateInVCS)
+                                mergeFileRevsVCS, removeFileRevFromVCS, removeFromVCS, updateInVCS)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
@@ -43,7 +43,6 @@ data Command
   | VCSRemoveRev FilePath Integer
   | VCSMergeRevs FilePath Integer Integer String
   | Debug
-  | ShowVCS
 
 main :: IO ()
 main = do
@@ -59,13 +58,13 @@ runInteractive st = do
   args <- words <$> getLine
   let parsRes = execParserPure defaultPrefs optsParser args
   unpackedRes <- customHandleParserResult parsRes
+  curTime <- getCurrentTime
   case unpackedRes of
     Left msg -> do
       putStrLn msg
       runInteractive st
     Right opts ->
       case optCommand opts of
-        ShowVCS                 -> handleOperationString showCurVCS ""
         Debug                   -> handleOperationString debugFS ""
         Dir                     -> handleOperationString directoryContent ""
         Exit                    -> putStrLn "Bye-bye"
@@ -74,10 +73,10 @@ runInteractive st = do
         Cat path                -> handleOperationByteString fileContent path
         Remove path             -> handleOperationVoid removeFileOrDirectory path
         FindFile name           -> handleOperationString findFile name
-        CreateFile name         -> handleOperationVoid createFile name
+        CreateFile name         -> handleOperationVoid createFile (name, curTime)
         Information path        -> handleOperationString information path
         CreateFolder name       -> handleOperationVoid createDirectory name
-        WriteToFile path cont   -> handleOperationVoid writeToFile ((B.pack cont), path)
+        WriteToFile path cont   -> handleOperationVoid writeToFile ((B.pack cont), path, curTime)
         VCSInit                 -> handleOperationString0 initVCS
         VCSAdd path             -> handleOperationString addToVCS path
         VCSUpdate path msg      -> handleOperationString updateInVCS (path, msg)
@@ -85,7 +84,7 @@ runInteractive st = do
         VCSCat path i           -> handleOperationByteString fileVersionVCS (path, i)
         VCSRemove path          -> handleOperationString removeFromVCS path
         VCSRemoveRev path i     -> handleOperationString removeFileRevFromVCS (path, i)
-        VCSMergeRevs path i j s -> handleOperationString mergeFileRevsVCS (path, i, j, s)
+        VCSMergeRevs path i j s -> handleOperationString mergeFileRevsVCS (path, i, j, s, curTime)
         VCSShowAll              -> handleOperationString0 allHistoryVCS
   where
     handleOperationVoid foo arg = do
@@ -153,7 +152,6 @@ programOptions =
     <> vcsRemoveRevCommand
     <> vcsMergeRevsCommand
     <> vcsShowAllCommand
-    <> showVCSCommand
     <> debugCommand
     )
   where
@@ -295,11 +293,6 @@ programOptions =
     debugCommand = command
       "debug"
       (info (pure Debug) (progDesc "debug"))
-
-    showVCSCommand :: Mod CommandFields Command
-    showVCSCommand = command
-        "show"
-        (info (pure ShowVCS) (progDesc "show vcs"))
 
 customHandleParserResult :: ParserResult a -> IO (Either ErrorMessage a)
 customHandleParserResult (Success a) = return $ Right a

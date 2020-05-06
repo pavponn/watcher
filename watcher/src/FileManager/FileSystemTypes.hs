@@ -6,10 +6,9 @@ import qualified Data.Map.Strict as Map
 import Control.Monad.State
 import Control.Monad.Trans.Except
 import Data.List (intercalate)
-import Data.Time.Clock (UTCTime (..), getCurrentTime)
+import Data.Time.Clock (UTCTime (..))
 import System.Directory.Internal (Permissions(..))
 import System.FilePath.Posix ((</>))
-import System.IO.Unsafe (unsafePerformIO)
 
 -- |Type alias for elements in directory. Element in directory is
 -- either File or Directory.
@@ -79,12 +78,10 @@ data FSException
   | FileNotFound
   | DuplicateFileOrDirectory String
   | UnsupportedOperation String
-  | FSInconsistent
   | NotValidPath String
-  | UnsupportedOperationArgument String
   | ImpossibleToPerform String
   | VCSException String
-  | Message String
+  | FSInconsistent
   deriving (Show)
 
 -- | Typealias for monad we're working in. Just to make it shorter.
@@ -113,11 +110,9 @@ instance Show DirInfo where
 instance Show VCSStorage where
   show storage = (show $ getRevisionsNum storage) ++ (show $ getVCSFiles storage)
 
--- TODO time
--- |Returns file with specified name and path in `FileInfo`.
-defaultNewFile :: String -> FilePath -> File
-defaultNewFile name path = do
-  let curTime = unsafePerformIO getCurrentTime
+-- | Returns file with specified name and path in `FileInfo`.
+defaultNewFile :: String -> FilePath -> UTCTime -> File
+defaultNewFile name path curTime = do
   let fileInfo = FileInfo {
         getFileType = "X3 4TO ETO"
       , getFilePath = path </> name
@@ -128,7 +123,7 @@ defaultNewFile name path = do
   File name fileInfo B.empty
 
 -- TODO: standard size
--- |Returns new directory with specified name and path in `DirInfo`.
+-- | Returns new directory with specified name and path in `DirInfo`.
 defaultNewDirectory :: String -> FilePath -> Directory
 defaultNewDirectory name path = do
   let dirInfo = DirInfo 200 (path </> name) (Permissions True True True True)

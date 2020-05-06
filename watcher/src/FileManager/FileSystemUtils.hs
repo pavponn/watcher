@@ -1,3 +1,7 @@
+{-|
+This module contains helper functions for manipulating `FSState`
+and FileSystem. There is no reason to use it apart from others.
+-}
 module FileManager.FileSystemUtils
   ( lookupInDirectory
   , getCurFSDirectory
@@ -20,17 +24,22 @@ import FileManager.FilePathUtils
 import FileManager.FileSystemTypes
 import System.FilePath ((</>))
 
+-- | Returns `DirElement` if one with given name exist in `Directory`, otherwise
+-- throws `NoSuchFileOrDirectory`.
 lookupInDirectory :: Directory -> String -> ExceptState DirElement
 lookupInDirectory dir name =
   case Map.lookup name (getDirContents dir) of
     Nothing  -> throwE NoSuchFileOrDirectory
     (Just a) -> return a
 
+-- | Returns current `Directory` of a file system's state.
 getCurFSDirectory :: ExceptState Directory
 getCurFSDirectory = do
   FSState{curDirectoryPath = path} <- get
   getDirectoryByPath path `catchE` (\_ -> throwE FSInconsistent)
 
+-- | Returns DirElement if one can be found by given path.
+-- Throws `NoSuchFileOrDirectory` if there is n such element.
 getDirElementByPath :: FilePath -> ExceptState DirElement
 getDirElementByPath path = do
   FSState{curFileSystem = fs} <- get
@@ -47,20 +56,26 @@ getDirElementByPath path = do
           else throwE NoSuchFileOrDirectory
         (Right dir') -> getDirElement dir' xs
 
+-- | Same as `getDirElementByPath`, but also casts `DirElement` to `File`.
+-- If it's not a File, then throws `NotFile`.
 getFileByPath :: FilePath -> ExceptState File
 getFileByPath path = do
   fileOrDir <- getDirElementByPath path
   case fileOrDir of
     (Left  file) -> return file
-    (Right _   ) -> throwE NoSuchFileOrDirectory
+    (Right _   ) -> throwE NotFile
 
+-- | Same as `getDirElementByPath`, but also casts `DirElement` to `Directory`.
+-- If it's not a Directory, then throws `NotDirectory`.
 getDirectoryByPath :: FilePath -> ExceptState Directory
 getDirectoryByPath path = do
   fileOrDir <- getDirElementByPath path
   case fileOrDir of
-    (Left  _  ) -> throwE NoSuchFileOrDirectory
+    (Left  _  ) -> throwE NotDirectory
     (Right dir) -> return dir
 
+-- | Updates paths to closest VCS directory and current directory of
+-- file system in `FSState`.
 updateSpecialPaths :: ExceptT FSException (State FSState) ()
 updateSpecialPaths = do
   st@FSState{curFileSystem = fs, curDirectoryPath = path} <- get
@@ -83,6 +98,7 @@ updateSpecialPaths = do
               let maybePath' = if (isNothing $ getVCSStorage dir') then maybePath else Just newAcc
               helper newAcc maybePath' xs dir'
 
+-- | Updates file system by changing one of it's Directories.
 updateFileSystem :: FilePath -> Directory -> ExceptState ()
 updateFileSystem path newDir = do
   st@FSState{curFileSystem = fs} <- get
@@ -104,6 +120,8 @@ updateFileSystem path newDir = do
           let newDirContents = Map.insert x (Right updatedDir) dirContents
           return dir{getDirContents = newDirContents}
 
+-- | Returns `VCSStorage` that has been initialised in this directory.
+-- Throws `VCSException` if provided directory doesn't have a `VCSStorage`.
 retractVCSStorage :: Directory -> ExceptState VCSStorage
 retractVCSStorage dir = do
   let maybeStorage = getVCSStorage dir
@@ -111,6 +129,8 @@ retractVCSStorage dir = do
     Nothing  -> throwE $ VCSException "VCS isn't initialized"
     (Just s) -> return s
 
+-- | Returns path to closest directory, where VCS was initialised, In case, there is
+-- no such directory it will throw `ImpossibleToPerform`,
 getVCSPath :: ExceptState FilePath
 getVCSPath = do
   FSState{curVCSPath = maybePath} <- get
@@ -118,6 +138,7 @@ getVCSPath = do
     Nothing  -> throwE $ ImpossibleToPerform "Current directory is not a part of VCS"
     (Just p) -> return p
 
+-- | Returns list of files from given directory and its subdirectories.
 getAllFilesInDirAndSubDirs :: Directory -> ExceptState [File]
 getAllFilesInDirAndSubDirs curDir = do
   let dirElements = map (\x -> snd x) $ Map.toList $ getDirContents curDir

@@ -1,7 +1,6 @@
 module FileManager.VCSHandlers
   ( initVCS
   , addToVCS
-  , showCurVCS
   , updateInVCS
   , fileHistoryVCS
   , fileVersionVCS
@@ -16,6 +15,7 @@ import Control.Monad.Trans.Except
 import qualified Data.ByteString.Char8 as B
 import Data.List (concat, intercalate, isPrefixOf, sort)
 import qualified Data.Map.Strict as Map
+import Data.Time.Clock (UTCTime)
 import FileManager.FileManagerHandlers (writeToFile)
 import FileManager.FilePathUtils
 import FileManager.FileSystemTypes
@@ -24,13 +24,6 @@ import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute)
 
 type VCSMap = Map.Map FilePath (Map.Map Integer (File, String))
-
-showCurVCS :: String -> ExceptState String
-showCurVCS _ = do
-  vcsPath <- getVCSPath `catchE` (\_ -> throwE $ Message "NO VCS HERE")
-  dirVCS <- getDirectoryByPath vcsPath
-  storage <- retractVCSStorage dirVCS `catchE` (\_ -> throwE $ Message "WAAAaAAAAAT")
-  return $ show $ storage
 
 -- | Initializes VCS in current directory, if VCS is already initialize does nothing.
 -- Returns message of operration status. Updates state (file system,
@@ -67,7 +60,7 @@ addToVCS path = do
         fileOrDir <- getDirElementByPath normPath
         case fileOrDir of
           (Left file) -> addFile vcsPath file
-          (Right dir) ->  addDir vcsPath dir
+          (Right dir) -> addDir vcsPath dir
       else
         throwE $ ImpossibleToPerform "path to file/directory is not a part of VCS"
 
@@ -161,8 +154,8 @@ removeFileRevFromVCS (path, index) = do
 -- or strategy is not defined, `NotValidPath` if path is invalid, `ImpossibleToPerform`
 -- if current directory isn't a part of VCS. If file has been deleted from
 -- file system but not VCS, throws `NoSuchFileOrDirectory`.
-mergeFileRevsVCS :: (FilePath, Integer, Integer, String) -> ExceptState String
-mergeFileRevsVCS (path, index1, index2, strategy) = do
+mergeFileRevsVCS :: (FilePath, Integer, Integer, String, UTCTime) -> ExceptState String
+mergeFileRevsVCS (path, index1, index2, strategy, curTime) = do
   FSState{curDirectoryPath = curPath} <- get
   if (isAbsolute path) then
     mergeFileRevsVCSInner path
@@ -185,19 +178,12 @@ mergeFileRevsVCS (path, index1, index2, strategy) = do
       let left  = (getFileData . fst) $ fileRevisions Map.! index1
       let right = (getFileData . fst) $ fileRevisions Map.!index2
       case strategy of
-        "left"  -> writeToFile (left, path)  >> return "Merged!"
-        "right" -> writeToFile (right, path) >> return "Merged!"
+        "left"  -> writeToFile (left, path, curTime)  >> return "Merged!"
+        "right" -> writeToFile (right, path, curTime) >> return "Merged!"
         "both"  -> do
-          writeToFile (B.concat [left, B.pack "\n>>>>\n", right], path)
+          writeToFile (B.concat [left, B.pack "\n>>>>\n", right], path, curTime)
           return "Merged!"
         _       -> throwE $ VCSException $ "Unknown merge strategy : " ++ strategy
-
-isInVCSMap :: Ord a => (Map.Map a b) -> a -> String -> ExceptState ()
-isInVCSMap mp element message = do
-  if Map.member element mp then
-    return ()
-  else
-    throwE $ VCSException message
 
 -- | Returns whole VCS history in chronological order (as a String).
 -- Throws `ImpossibleToPerform` if current directory is not a part of VCS.
@@ -252,6 +238,12 @@ fileVersionVCS (path, index) = do
           throwE $ VCSException $ "no revision with index " ++ (show index) ++
                                     " found for specified file"
 
+isInVCSMap :: Ord a => (Map.Map a b) -> a -> String -> ExceptState ()
+isInVCSMap mp element message = do
+  if Map.member element mp then
+    return ()
+  else
+    throwE $ VCSException message
 updateFile :: FilePath -> File -> String -> ExceptState String
 updateFile vcsPath file msg = do
   dirVCS <- getDirectoryByPath vcsPath `catchE` (\_ -> throwE $ FSInconsistent)
