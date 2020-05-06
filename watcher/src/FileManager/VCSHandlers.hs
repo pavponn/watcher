@@ -8,13 +8,15 @@ module FileManager.VCSHandlers
   , allHistoryVCS
   , removeFromVCS
   , removeFileRevFromVCS
+  , mergeFileRevsVCS
   )where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B
 import Data.List (concat, intercalate, isPrefixOf, sort)
 import qualified Data.Map.Strict as Map
+import FileManager.FileManagerHandlers (writeToFile)
 import FileManager.FilePathUtils
 import FileManager.FileSystemTypes
 import FileManager.FileSystemUtils
@@ -115,12 +117,11 @@ removeFromVCS path = do
       normPath <- getNormalisedPath realPath
       let filesData = getVCSFiles storage
       let absPath = (getPathToRootDirectory fs) </> normPath
-      isInVCS filesData absPath ("no such file in VCS: " ++ absPath)
+      isInVCSMap filesData absPath ("no such file in VCS: " ++ absPath)
       let newFilesData = Map.delete absPath filesData
       let newDir = vcsDir{getVCSStorage = Just storage{getVCSFiles = newFilesData}}
       updateFileSystem vcsPath newDir
       return $ "Deleted file from VCS: " ++ absPath
-
 
 -- | Removes specified revision of specified file from VCS and returns operation's status message.
 -- If there are no more revisions stored, deletes file from VCS. Updates state.
@@ -144,18 +145,49 @@ removeFileRevFromVCS (path, index) = do
       normPath <- getNormalisedPath realPath
       let filesData = getVCSFiles storage
       let absPath = (getPathToRootDirectory fs) </> normPath
-      isInVCS filesData absPath ("no such file in VCS: " ++ absPath)
-      let fileVersions = filesData Map.! absPath
-      isInVCS fileVersions index ("no such index " ++ (show index) ++ " for specified file")
-      let newFileVersions = Map.delete index fileVersions
-      let newFilesData = if (Map.null newFileVersions) then (Map.delete absPath filesData)
-              else (Map.insert absPath newFileVersions filesData)
+      isInVCSMap filesData absPath ("no such file in VCS: " ++ absPath)
+      let fileRevisions = filesData Map.! absPath
+      isInVCSMap fileRevisions index ("no such index " ++ (show index) ++ " for specified file")
+      let newFileRevisions = Map.delete index fileRevisions
+      let newFilesData = if (Map.null newFileRevisions) then (Map.delete absPath filesData)
+              else (Map.insert absPath newFileRevisions filesData)
       let newDir = vcsDir{getVCSStorage = Just storage{getVCSFiles = newFilesData}}
       updateFileSystem vcsPath newDir
       return $ "Deleted version with index " ++ (show index) ++ "of file" ++ absPath
 
-isInVCS :: Ord a => (Map.Map a b) -> a -> String -> ExceptState ()
-isInVCS mp element message = do
+mergeFileRevsVCS :: (FilePath, Integer, Integer, String) -> ExceptState String
+mergeFileRevsVCS (path, index1, index2, strategy) = do
+  FSState{curDirectoryPath = curPath} <- get
+  if (isAbsolute path) then
+    mergeFileRevsVCSInner path
+  else do
+    mergeFileRevsVCSInner (curPath </> path)
+  where
+    mergeFileRevsVCSInner :: FilePath -> ExceptState String
+    mergeFileRevsVCSInner realPath = do
+      FSState{curFileSystem = fs} <- get
+      vcsPath <- getVCSPath
+      vcsDir <- getDirectoryByPath vcsPath
+      storage <- retractVCSStorage vcsDir
+      normPath <- getNormalisedPath realPath
+      let filesData = getVCSFiles storage
+      let absPath = (getPathToRootDirectory fs) </> normPath
+      isInVCSMap filesData absPath ("no such file in VCS: " ++ absPath)
+      let fileRevisions = filesData Map.! absPath
+      isInVCSMap fileRevisions index1 ("no such index " ++ (show index1) ++ " for specified file")
+      isInVCSMap fileRevisions index2 ("no such index " ++ (show index1) ++ " for specified file")
+      let left  = (getFileData . fst) $ fileRevisions Map.! index1
+      let right = (getFileData . fst) $ fileRevisions Map.!index2
+      case strategy of
+        "left"  -> writeToFile (left, path) >> return "Merged!"
+        "right" -> writeToFile (right, path) >> return "Merged!"
+        "both"  -> do
+          writeToFile (B.concat [left, B.pack "\n>>>>\n", right], path)
+          return "Merged!"
+        _       -> throwE $ VCSException $ "Unknown merge strategy : " ++ strategy
+
+isInVCSMap :: Ord a => (Map.Map a b) -> a -> String -> ExceptState ()
+isInVCSMap mp element message = do
   if Map.member element mp then
     return ()
   else

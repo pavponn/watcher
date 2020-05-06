@@ -9,8 +9,9 @@ import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, di
                                         removeFileOrDirectory, writeToFile)
 import FileManager.FileSystemTypes
 import FileManager.Loader (getFileSystem)
-import FileManager.VCSHandlers (addToVCS, fileHistoryVCS, fileVersionVCS, initVCS, showCurVCS,
-                                updateInVCS, allHistoryVCS, removeFromVCS, removeFileRevFromVCS)
+import FileManager.VCSHandlers (addToVCS, allHistoryVCS, fileHistoryVCS, fileVersionVCS, initVCS,
+                                mergeFileRevsVCS, removeFileRevFromVCS, removeFromVCS, showCurVCS,
+                                updateInVCS)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
@@ -40,6 +41,7 @@ data Command
   | VCSShowAll
   | VCSRemove FilePath
   | VCSRemoveRev FilePath Integer
+  | VCSMergeRevs FilePath Integer Integer String
   | Debug
   | ShowVCS
 
@@ -63,28 +65,28 @@ runInteractive st = do
       runInteractive st
     Right opts ->
       case optCommand opts of
-        ShowVCS               -> handleOperationString showCurVCS ""
-        Debug                 -> handleOperationString debugFS ""
-        Dir                   -> handleOperationString directoryContent ""
-        Exit                  -> putStrLn "Bye-bye"
-        Cd path               -> handleOperationVoid  goToDirectory path
-        Ls path               -> handleOperationString directoryContent path
-        Cat path              -> handleOperationByteString fileContent path
-        Remove path           -> handleOperationVoid removeFileOrDirectory path
-        FindFile name         -> handleOperationString findFile name
-        CreateFile name       -> handleOperationVoid createFile name
-        Information path      -> handleOperationString information path
-        CreateFolder name     -> handleOperationVoid createDirectory name
-        WriteToFile path cont -> handleOperationVoid writeToFile ((B.pack cont), path)
-        VCSInit               -> handleOperationString0 initVCS
-        VCSAdd path           -> handleOperationString addToVCS path
-        VCSUpdate path msg    -> handleOperationString updateInVCS (path, msg)
-        VCSHistory path       -> handleOperationString fileHistoryVCS path
-        VCSCat path i         -> handleOperationByteString fileVersionVCS (path, i)
-        VCSRemove path        -> handleOperationString removeFromVCS path
-        VCSRemoveRev path i   -> handleOperationString removeFileRevFromVCS (path, i)
-        VCSShowAll            -> handleOperationString0 allHistoryVCS
-
+        ShowVCS                 -> handleOperationString showCurVCS ""
+        Debug                   -> handleOperationString debugFS ""
+        Dir                     -> handleOperationString directoryContent ""
+        Exit                    -> putStrLn "Bye-bye"
+        Cd path                 -> handleOperationVoid  goToDirectory path
+        Ls path                 -> handleOperationString directoryContent path
+        Cat path                -> handleOperationByteString fileContent path
+        Remove path             -> handleOperationVoid removeFileOrDirectory path
+        FindFile name           -> handleOperationString findFile name
+        CreateFile name         -> handleOperationVoid createFile name
+        Information path        -> handleOperationString information path
+        CreateFolder name       -> handleOperationVoid createDirectory name
+        WriteToFile path cont   -> handleOperationVoid writeToFile ((B.pack cont), path)
+        VCSInit                 -> handleOperationString0 initVCS
+        VCSAdd path             -> handleOperationString addToVCS path
+        VCSUpdate path msg      -> handleOperationString updateInVCS (path, msg)
+        VCSHistory path         -> handleOperationString fileHistoryVCS path
+        VCSCat path i           -> handleOperationByteString fileVersionVCS (path, i)
+        VCSRemove path          -> handleOperationString removeFromVCS path
+        VCSRemoveRev path i     -> handleOperationString removeFileRevFromVCS (path, i)
+        VCSMergeRevs path i j s -> handleOperationString mergeFileRevsVCS (path, i, j, s)
+        VCSShowAll              -> handleOperationString0 allHistoryVCS
   where
     handleOperationVoid foo arg = do
       let (res, newState) = runState (runExceptT $ foo arg) st
@@ -149,6 +151,7 @@ programOptions =
     <> vcsCatCommand
     <> vcsRemoveCommand
     <> vcsRemoveRevCommand
+    <> vcsMergeRevsCommand
     <> vcsShowAllCommand
     <> showVCSCommand
     <> debugCommand
@@ -226,6 +229,10 @@ programOptions =
     vcsRemoveRevCommand = command
       "vcs-remove-rev"
       (info vcsRemoveRevOptions (progDesc "remove specified revision of specified file from VCS"))
+    vcsMergeRevsCommand :: Mod CommandFields Command
+    vcsMergeRevsCommand = command
+      "vcs-merge-revs"
+      (info vcsMergeRevsOptions (progDesc "remove specified revision of specified file from VCS"))
     vcsShowAllCommand :: Mod CommandFields Command
     vcsShowAllCommand = command
       "vcs-show-all"
@@ -278,6 +285,12 @@ programOptions =
     vcsRemoveRevOptions = VCSRemoveRev <$>
       strArgument (metavar "PATH" <> help "Path to file that is in VCS") <*>
       argument auto (metavar "INDEX" <> help "Index of file in vcs")
+    vcsMergeRevsOptions :: Parser Command
+    vcsMergeRevsOptions = VCSMergeRevs <$>
+      strArgument (metavar "PATH" <> help "Path to file that is in VCS") <*>
+      argument auto (metavar "INDEX" <> help "Index of file in vcs") <*>
+      argument auto (metavar "INDEX" <> help "Index of file in vcs") <*>
+      strArgument (metavar "STRATEGY" <> help "strategy of merging revisions VCS")
     debugCommand :: Mod CommandFields Command
     debugCommand = command
       "debug"
