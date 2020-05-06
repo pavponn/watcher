@@ -10,7 +10,7 @@ import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, di
 import FileManager.FileSystemTypes
 import FileManager.Loader (getFileSystem)
 import FileManager.VCSHandlers (addToVCS, fileHistoryVCS, fileVersionVCS, initVCS, showCurVCS,
-                                updateInVCS, allHistoryVCS)
+                                updateInVCS, allHistoryVCS, removeFromVCS)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
@@ -38,6 +38,7 @@ data Command
   | VCSHistory FilePath
   | VCSCat FilePath Integer
   | VCSShowAll
+  | VCSRemove FilePath
   | Debug
   | ShowVCS
 
@@ -73,21 +74,16 @@ runInteractive st = do
         CreateFile name       -> handleOperationVoid createFile name
         Information path      -> handleOperationString information path
         CreateFolder name     -> handleOperationVoid createDirectory name
-        WriteToFile path cont -> handleOperationVoid2 writeToFile (B.pack cont) path
+        WriteToFile path cont -> handleOperationVoid writeToFile ((B.pack cont), path)
         VCSInit               -> handleOperationString0 initVCS
         VCSAdd path           -> handleOperationString addToVCS path
         VCSUpdate path msg    -> handleOperationString updateInVCS (path, msg)
         VCSHistory path       -> handleOperationString fileHistoryVCS path
         VCSCat path index     -> handleOperationByteString fileVersionVCS (path, index)
+        VCSRemove path        -> handleOperationString removeFromVCS path
         VCSShowAll            -> handleOperationString0 allHistoryVCS
 
   where
-    handleOperationVoid2 foo arg1 arg2 = do
-      let (res, newState) = runState (runExceptT $ foo arg1 arg2) st
-      case res of
-        (Left err) -> putStrLn $ show err
-        (Right _ ) -> return ()
-      runInteractive newState
     handleOperationVoid foo arg = do
       let (res, newState) = runState (runExceptT $ foo arg) st
       case res of
@@ -149,6 +145,7 @@ programOptions =
     <> vcsUpdateCommand
     <> vcsHistoryCommand
     <> vcsCatCommand
+    <> vcsRemoveCommand
     <> vcsShowAllCommand
     <> showVCSCommand
     <> debugCommand
@@ -218,6 +215,10 @@ programOptions =
     vcsCatCommand = command
       "vcs-cat"
       (info vcsCatOptions (progDesc "show specified version of specified file in VCS"))
+    vcsRemoveCommand :: Mod CommandFields Command
+    vcsRemoveCommand = command
+      "vcs-remove"
+      (info vcsRemoveOptions (progDesc "remove specified file from VCS"))
     vcsShowAllCommand :: Mod CommandFields Command
     vcsShowAllCommand = command
       "vcs-show-all"
@@ -263,7 +264,9 @@ programOptions =
     vcsCatOptions = VCSCat <$>
       strArgument (metavar "PATH" <> help "Path to file that is in VCS") <*>
       argument auto (metavar "INDEX" <> help "Index of file in vcs")
-
+    vcsRemoveOptions :: Parser Command
+    vcsRemoveOptions = VCSRemove <$>
+      strArgument (metavar "PATH" <> help "Path to file to be deleted from VCS")
     debugCommand :: Mod CommandFields Command
     debugCommand = command
       "debug"

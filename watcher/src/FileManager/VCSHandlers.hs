@@ -6,12 +6,12 @@ module FileManager.VCSHandlers
   , fileHistoryVCS
   , fileVersionVCS
   , allHistoryVCS
+  , removeFromVCS
   )where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
 import qualified Data.ByteString as B
-import Data.Either (lefts, rights)
 import Data.List (concat, intercalate, isPrefixOf, sort)
 import qualified Data.Map.Strict as Map
 import FileManager.FilePathUtils
@@ -20,16 +20,19 @@ import FileManager.FileSystemUtils
 import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute)
 
-type MyMap = Map.Map FilePath (Map.Map Integer (File, String))
+type VCSMap = Map.Map FilePath (Map.Map Integer (File, String))
 
-showCurVCS :: String -> ExceptT FSException (State FSState) String
+showCurVCS :: String -> ExceptState String
 showCurVCS _ = do
   vcsPath <- getVCSPath `catchE` (\_ -> throwE $ Message "NO VCS HERE")
   dirVCS <- getDirectoryByPath vcsPath
   storage <- retractVCSStorage dirVCS `catchE` (\_ -> throwE $ Message "WAAAaAAAAAT")
   return $ show $ storage
 
-initVCS :: ExceptT FSException (State FSState) String
+-- | Initializes VCS in current directory, if VCS is already initialize does nothing.
+-- Returns message of operration status. Updates state (file system,
+-- path to current VCS directory).
+initVCS :: ExceptState String
 initVCS = do
   curDir <- getCurFSDirectory
   case getVCSStorage curDir of
@@ -40,7 +43,12 @@ initVCS = do
       updateFileSystem curPath curDir{getVCSStorage = Just defaultVCSStorage}
       return "VCS was successfully initilised in current directory"
 
-addToVCS :: FilePath -> ExceptT FSException (State FSState) String
+-- | Adds file/directory (all files in directory and its subdirectories)
+-- that coresponds to provided path to current VCS.
+-- Updates state (file system). Throws `ImpossibleToPerform` if current directory
+-- is not a part of VCS or filepath is outside of it, NoSuchFileOrDirectory`
+-- if there is no such file, `NotValidPath` if path is invalid.
+addToVCS :: FilePath -> ExceptState String
 addToVCS path = do
   FSState{curDirectoryPath = curPath} <- get
   if (isAbsolute path) then
@@ -48,7 +56,7 @@ addToVCS path = do
   else do
     addToVCSInner (curPath </> path)
   where
-    addToVCSInner :: FilePath -> ExceptT FSException (State FSState) String
+    addToVCSInner :: FilePath -> ExceptState String
     addToVCSInner realPath = do
       vcsPath <- getVCSPath
       normPath <- getNormalisedPath realPath
@@ -58,9 +66,14 @@ addToVCS path = do
           (Left file) -> addFile vcsPath file
           (Right dir) ->  addDir vcsPath dir
       else
-        throwE $ ImpossibleToPerform "Path to file/directory is not a part of VCS"
+        throwE $ ImpossibleToPerform "path to file/directory is not a part of VCS"
 
-updateInVCS :: (FilePath, String) -> ExceptT FSException (State FSState) String
+-- | Updates file that coresponds to provided path in VCS with message.
+-- Returns string info on operation status. Throws `VCSException` if path is a path
+-- to directory, `ImpossibleToPerform` if provided  file can't be tracked by
+-- VCS/or there is no VCS in current directory, NoSuchFileOrDirectory`
+-- if there is no such file, `NotValidPath` if path is invalid.
+updateInVCS :: (FilePath, String) -> ExceptState String
 updateInVCS (path, message) = do
     FSState{curDirectoryPath = curPath} <- get
     if (isAbsolute path) then
@@ -68,7 +81,7 @@ updateInVCS (path, message) = do
     else do
       updateInVCSInner (curPath </> path) message
     where
-      updateInVCSInner :: FilePath -> String -> ExceptT FSException (State FSState) String
+      updateInVCSInner :: FilePath -> String -> ExceptState String
       updateInVCSInner realPath msg = do
         vcsPath <- getVCSPath
         normPath <- getNormalisedPath realPath
@@ -76,11 +89,42 @@ updateInVCS (path, message) = do
           fileOrDir <- getDirElementByPath normPath
           case fileOrDir of
             (Left file) -> updateFile vcsPath file msg
-            (Right _  ) -> throwE $ UnsupportedOperation "Can't update directories"
+            (Right _  ) -> throwE $ VCSException "can't update directories"
         else
-          throwE $ ImpossibleToPerform "Path to file/directory is not a part of VCS"
+          throwE $ ImpossibleToPerform "path to file/directory is not a part of VCS"
 
-allHistoryVCS :: ExceptT FSException (State FSState) String
+-- | Removes file from VCS and returns operation's status message.
+--  Updates state. Throws `VCSException` if there is no such file in VCS,
+-- `NotValidPath` if path is invalid, `ImpossibleToPerform`
+-- if current directory isn't a part of VCS.
+removeFromVCS :: FilePath -> ExceptState String
+removeFromVCS path = do
+  FSState{curDirectoryPath = curPath} <- get
+  if (isAbsolute path) then
+    removeFromVCSInner path
+  else do
+    removeFromVCSInner (curPath </> path)
+  where
+    removeFromVCSInner :: FilePath -> ExceptState String
+    removeFromVCSInner realPath = do
+      FSState{curFileSystem = fs} <- get
+      vcsPath <- getVCSPath
+      vcsDir <- getDirectoryByPath vcsPath
+      storage <- retractVCSStorage vcsDir
+      normPath <- getNormalisedPath realPath
+      let filesData = getVCSFiles storage
+      let absPath = (getPathToRootDirectory fs) </> normPath
+      if (Map.member absPath filesData) then do
+        let newFilesData = Map.delete absPath filesData
+        let newDir = vcsDir{getVCSStorage = Just storage{getVCSFiles = newFilesData}}
+        updateFileSystem vcsPath newDir
+        return $ "Deleted file from VCS: " ++ absPath
+      else
+        throwE $ VCSException $ "no such file in VCS: " ++ absPath
+
+-- | Returns whole VCS history in chronological order (as a String).
+-- Throws `ImpossibleToPerform` if current directory is not a part of VCS.
+allHistoryVCS :: ExceptState String
 allHistoryVCS = do
   vcsPath <- getVCSPath
   vcsDir <- getDirectoryByPath vcsPath `catchE` (\_ -> throwE $ FSInconsistent)
@@ -89,10 +133,12 @@ allHistoryVCS = do
   let list = sort $ map (\(i, (f, m)) -> (i, m, getFilePath $ getFileInfo f)) $
                       concat $ map Map.toList maps
   return $ intercalate "\n" $
-            map (\(i, m, n) -> (show i) ++ ". " ++ m ++ "(" ++ n ++ ") ") list
+            map (\(i, m, n) -> (show i) ++ ". " ++ m ++ " (" ++ n ++ ")") list
 
-
-fileHistoryVCS :: FilePath -> ExceptT FSException (State FSState) String
+-- | Accepts path to file and returns it's history from VCS in chronological order
+-- (as a String). Throws `ImpossibleToPerform` if current directory is not a part of VCS,
+-- `VCSException` if there is no such file in VCS.
+fileHistoryVCS :: FilePath -> ExceptState String
 fileHistoryVCS path = do
   FSState{curDirectoryPath = curPath} <- get
   if (isAbsolute path) then
@@ -100,15 +146,17 @@ fileHistoryVCS path = do
   else do
     fileHistoryVCSInner (curPath </> path)
   where
-    fileHistoryVCSInner :: FilePath -> ExceptT FSException (State FSState) String
+    fileHistoryVCSInner :: FilePath -> ExceptState String
     fileHistoryVCSInner realPath = do
       vcsPath <- getVCSPath
       fileHistory <- getFileHistory vcsPath realPath
       let historyList = sort $  map (\(r, (_, s)) -> (r, s)) $ Map.toList fileHistory
       return $ intercalate "\n" $ map (\(r, s) -> (show r) ++ ". " ++ s) historyList
 
-fileVersionVCS :: (FilePath, Integer)
-               -> ExceptT FSException (State FSState) B.ByteString
+-- | Accepts path to file and revision's index, return file's content for specified
+-- index. Throws `ImpossibleToPerform` if current directory is not a part of VCS,
+-- `VCSException` if there is no such file in VCS or there is no revision with such index.
+fileVersionVCS :: (FilePath, Integer) -> ExceptState B.ByteString
 fileVersionVCS (path, index) = do
   FSState{curDirectoryPath = curPath} <- get
   if (isAbsolute path) then
@@ -116,7 +164,7 @@ fileVersionVCS (path, index) = do
   else do
     fileVersionVCSInner (curPath </> path)
   where
-    fileVersionVCSInner :: FilePath -> ExceptT FSException (State FSState) B.ByteString
+    fileVersionVCSInner :: FilePath -> ExceptState B.ByteString
     fileVersionVCSInner realPath = do
       vcsPath <- getVCSPath
       fileHistory <- getFileHistory vcsPath realPath
@@ -124,10 +172,10 @@ fileVersionVCS (path, index) = do
         (Just f) -> do
           return $ (getFileData . fst) f
         Nothing  -> do
-          throwE $ VCSException $ "No revision with index " ++ (show index) ++
-                                    " found for specified file "
+          throwE $ VCSException $ "no revision with index " ++ (show index) ++
+                                    " found for specified file"
 
-updateFile :: FilePath -> File -> String -> ExceptT FSException (State FSState) String
+updateFile :: FilePath -> File -> String -> ExceptState String
 updateFile vcsPath file msg = do
   dirVCS <- getDirectoryByPath vcsPath `catchE` (\_ -> throwE $ FSInconsistent)
   storage <- retractVCSStorage dirVCS `catchE` (\_ -> throwE $ FSInconsistent)
@@ -137,17 +185,17 @@ updateFile vcsPath file msg = do
   let newStorage = storage{getVCSFiles = newFilesData, getRevisionsNum = rev + 1}
   let newDir = dirVCS{getVCSStorage = Just newStorage}
   updateFileSystem vcsPath newDir
-  return $ "File " ++  (getFilePath $ getFileInfo file ) ++ " updated in VCS."
+  return $ "Updated file: " ++ (getFilePath $ getFileInfo file)
 
-addFile :: FilePath -> File -> ExceptT FSException (State FSState) String
+addFile :: FilePath -> File -> ExceptState String
 addFile vcsPath file = addFiles vcsPath [file]
 
-addDir :: FilePath -> Directory -> ExceptT FSException (State FSState) String
+addDir :: FilePath -> Directory -> ExceptState String
 addDir vcsPath dir = do
   allFiles <- getAllFilesInDirAndSubDirs dir
   addFiles vcsPath allFiles
 
-addFiles :: FilePath -> [File] -> ExceptT FSException (State FSState) String
+addFiles :: FilePath -> [File] -> ExceptState String
 addFiles vcsPath files = do
   dirVCS <- getDirectoryByPath vcsPath `catchE` (\_ -> throwE $ FSInconsistent)
   storage <- retractVCSStorage dirVCS `catchE` (\_ -> throwE $ FSInconsistent)
@@ -160,27 +208,25 @@ addFiles vcsPath files = do
   updateFileSystem vcsPath newDir
   return $ intercalate "\n" msgs
 
-updateMap :: File -> String -> Integer -> MyMap
-          -> ExceptT FSException (State FSState) MyMap
+updateMap :: File -> String -> Integer -> VCSMap -> ExceptState VCSMap
 updateMap file msg rev filesData = do
   let absPath = getFilePath $ getFileInfo file
   case (Map.lookup absPath filesData) of
     Nothing ->
-     throwE $ ImpossibleToPerform $ "File " ++ absPath ++ "isn't in VCS"
+     throwE $ ImpossibleToPerform $ "file " ++ absPath ++ "isn't in VCS"
     (Just revMap) -> do
       let newRevMap = Map.insert rev (file,msg) revMap
       let newFilesData = Map.insert absPath newRevMap filesData
       return newFilesData
 
-addAllToMap :: [File] -> Integer -> MyMap -> [String] -> Bool
-            -> ExceptT FSException (State FSState) (MyMap, [String], Bool)
+addAllToMap :: [File] -> Integer -> VCSMap -> [String] -> Bool
+            -> ExceptState (VCSMap, [String], Bool)
 addAllToMap []     _   filesData outputs upd = return (filesData, outputs, upd)
 addAllToMap (f:fs) rev filesData outputs upd = do
   (newFilesData, output, newUpd) <- addToMap f rev filesData
   addAllToMap fs rev newFilesData (output:outputs) (upd || newUpd)
 
-addToMap :: File -> Integer -> MyMap
-         -> ExceptT FSException (State FSState) (MyMap, String, Bool)
+addToMap :: File -> Integer -> VCSMap -> ExceptState (VCSMap, String, Bool)
 addToMap file rev filesData = do
   let absPath = getFilePath $ getFileInfo file
   if (Map.member absPath filesData) then
@@ -189,8 +235,7 @@ addToMap file rev filesData = do
     let newFilesData = Map.insert absPath (Map.singleton rev (file, "initial")) filesData
     return (newFilesData, "Added file: " ++ absPath, True)
 
-getFileHistory :: FilePath -> FilePath
-              -> ExceptT FSException (State FSState) (Map.Map Integer (File, String))
+getFileHistory :: FilePath -> FilePath -> ExceptState (Map.Map Integer (File, String))
 getFileHistory vcsPath realPath = do
   vcsDir <- getDirectoryByPath vcsPath `catchE` (\_ -> throwE $ FSInconsistent)
   storage <- retractVCSStorage vcsDir `catchE` (\_ -> throwE $ FSInconsistent)
@@ -199,10 +244,4 @@ getFileHistory vcsPath realPath = do
   let absPath = (getPathToRootDirectory fs) </> normPath
   case Map.lookup absPath (getVCSFiles storage) of
     (Just history) -> return $ history
-    Nothing        -> throwE $ VCSException "No such file in current VCS"
-
-getAllFilesInDirAndSubDirs :: Directory -> ExceptT FSException (State FSState) [File]
-getAllFilesInDirAndSubDirs curDir = do
-  let dirElements = map (\x -> snd x) $ Map.toList $ getDirContents curDir
-  filesInSubDir <- mapM getAllFilesInDirAndSubDirs (rights dirElements)
-  return $ (lefts dirElements) ++ (concat filesInSubDir)
+    Nothing        -> throwE $ VCSException "no such file in current VCS"

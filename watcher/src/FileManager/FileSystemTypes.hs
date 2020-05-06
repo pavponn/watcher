@@ -3,6 +3,8 @@ module FileManager.FileSystemTypes where
 import qualified Data.ByteString as B
 import qualified Data.Map.Strict as Map
 
+import Control.Monad.State
+import Control.Monad.Trans.Except
 import Data.List (intercalate)
 import Data.Time.Clock (UTCTime (..), getCurrentTime)
 import System.Directory.Internal (Permissions(..))
@@ -85,6 +87,9 @@ data FSException
   | Message String
   deriving (Show)
 
+-- | Typealias for monad we're working in. Just to make it shorter.
+type ExceptState a = ExceptT FSException (State FSState) a
+
 instance Show File where
   show (File name info _) =
     "File { getFileName = " ++ name  ++ ", getFileInfo = " ++ show info ++ "}"
@@ -107,7 +112,9 @@ instance Show DirInfo where
 
 instance Show VCSStorage where
   show storage = (show $ getRevisionsNum storage) ++ (show $ getVCSFiles storage)
+
 -- TODO time
+-- |Returns file with specified name and path in `FileInfo`.
 defaultNewFile :: String -> FilePath -> File
 defaultNewFile name path = do
   let curTime = unsafePerformIO getCurrentTime
@@ -121,10 +128,12 @@ defaultNewFile name path = do
   File name fileInfo B.empty
 
 -- TODO: standard size
+-- |Returns new directory with specified name and path in `DirInfo`.
 defaultNewDirectory :: String -> FilePath -> Directory
 defaultNewDirectory name path = do
   let dirInfo = DirInfo 200 (path </> name) (Permissions True True True True)
   Directory name dirInfo Map.empty Nothing
 
+-- | Returns empty VCSStorage.
 defaultVCSStorage :: VCSStorage
 defaultVCSStorage = VCSStorage Map.empty 0

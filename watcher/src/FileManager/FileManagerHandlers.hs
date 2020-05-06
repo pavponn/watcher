@@ -26,16 +26,18 @@ import FileManager.FileSystemUtils
 import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute, joinPath, splitFileName)
 
-type ExceptState a = ExceptT FSException (State FSState) a
-
-debugFS :: FilePath -> ExceptT FSException (State FSState) FilePath
+debugFS :: FilePath -> ExceptState FilePath
 debugFS _ = do
   FSState{curFileSystem = fs, curDirectoryPath = curPath, curVCSPath = vcsPath}<- get
   return $ "PATH TO CUR DIR : " ++  curPath ++ "\n" ++
              "CUR VCS PATH : " ++ (show vcsPath) ++ "\n" ++
                "ROOT_DIR:\n" ++ (show $ getDirInfo $ getRootDirectory fs) ++ "\n"
 
-removeFileOrDirectory :: FilePath -> ExceptT FSException (State FSState) ()
+-- | Accepts path to file or directory and removes it from file system,
+-- changing current state: file system and all current paths.
+-- Throws `NotValidPath` if path is invalid, throws `ImpossibleToPerform`,
+-- if path is a path to root directory.
+removeFileOrDirectory :: FilePath -> ExceptState ()
 removeFileOrDirectory path = do
   if (isAbsolute path) then
     removeInner path
@@ -47,14 +49,17 @@ removeFileOrDirectory path = do
       normPath <- getNormalisedPath realPath
       let (pathToContDir, name) = splitFileName $ normPath
       if (name == []) then
-        throwE $ UnsupportedOperationArgument path
+        throwE $ ImpossibleToPerform $ "Can't remove " ++ path
       else do
         dir <- getDirectoryByPath pathToContDir
         let newContent = Map.delete name (getDirContents dir)
         updateFileSystem pathToContDir dir{getDirContents = newContent}
         updateSpecialPaths
 
-createDirectory :: String -> ExceptT FSException (State FSState) ()
+-- | Creates new directory in current directory with specified name.
+-- Updates current state (file system). Throws `DuplicateFileOrDirectory`if
+-- file/directory with providied name already exists.
+createDirectory :: String -> ExceptState ()
 createDirectory name = do
   FSState{curFileSystem = fs, curDirectoryPath = relDirPath} <- get
   curDir <- getCurFSDirectory
@@ -65,7 +70,10 @@ createDirectory name = do
     let newDirContents = Map.insert name (Right newDir) (getDirContents curDir)
     updateFileSystem relDirPath curDir{getDirContents = newDirContents}
 
-createFile :: String -> ExceptT FSException (State FSState) ()
+-- | Creates new file in current directory with specified name.
+-- Updates current state (file system). Throws `DuplicateFileOrDirectory`if
+-- file/directory with providied name already exists.
+createFile :: String -> ExceptState ()
 createFile name = do
   FSState{curFileSystem = fs, curDirectoryPath = relDirPath} <- get
   curDir <- getCurFSDirectory
@@ -76,7 +84,8 @@ createFile name = do
     let newDirContents = Map.insert name (Left newFile) (getDirContents curDir)
     updateFileSystem relDirPath curDir{getDirContents = newDirContents}
 
-findFile :: String -> ExceptT FSException (State FSState) String
+-- | Returns a string that contains all paths to files with specified name.
+findFile :: String -> ExceptState String
 findFile fileName = do
   curDir <- getCurFSDirectory
   let files = searchForFileInDirectory fileName curDir
@@ -95,15 +104,19 @@ findFile fileName = do
       let filesInSubDir = concat $ map (searchForFileInDirectory name) subDirs
       filesInDir ++ filesInSubDir
 
-writeToFile :: B.ByteString -> FilePath -> ExceptT FSException (State FSState) ()
-writeToFile content path = do
+-- | Accepts new file's content (as a `ByteString`) and path to file, changes
+-- this file's content. Updates state (file system). Throws `NotFile` if
+-- provided path is not a path to file. Throws `NoSuchFileOrDirectory`
+-- if there is no such file, `NotValidPath` if path is invalid.
+writeToFile :: (B.ByteString, FilePath) -> ExceptState ()
+writeToFile (content, path) = do
   if (isAbsolute path) then do
     writeToFileInner path
   else do
     FSState{curDirectoryPath = curPath} <- get
     writeToFileInner $ curPath </> path
   where
-    writeToFileInner :: FilePath -> ExceptT FSException (State FSState) ()
+    writeToFileInner :: FilePath -> ExceptState ()
     writeToFileInner realPath = do
       let (pathToContDir, name) = splitFileName realPath
       dir <- getDirectoryByPath pathToContDir
@@ -111,11 +124,14 @@ writeToFile content path = do
       case (fileOrDir) of
         (Right _  ) -> throwE NotFile
         (Left file) -> do
-          let modifiedFile = file{getFileData =  content}
+          let modifiedFile = file{getFileData = content}
           let newDirContents = Map.insert name (Left modifiedFile) (getDirContents dir)
           updateFileSystem pathToContDir dir{getDirContents = newDirContents}
 
-goToDirectory :: FilePath -> ExceptT FSException (State FSState) ()
+-- | Accepts path to directory to go to. Updates state
+-- (file system, all special paths) Throws `NoSuchFileOrDirectory`
+-- if there is no such directory, `NotValidPath` if path is invalid.
+goToDirectory :: FilePath -> ExceptState ()
 goToDirectory path = do
   FSState{curFileSystem = fs, curDirectoryPath = curPath} <- get
   if (isAbsolute path) then do
@@ -128,7 +144,7 @@ goToDirectory path = do
     goToDirectoryInner absFSPath Nothing (getRootDirectory fs) normSplittedPath
   where
     goToDirectoryInner :: FilePath -> Maybe FilePath -> Directory -> [FilePath]
-                       -> ExceptT FSException (State FSState) ()
+                       -> ExceptState ()
     goToDirectoryInner newPath maybeVCSPath dir [] = do
       st@FSState{} <- get
       case getVCSStorage dir of
@@ -147,29 +163,32 @@ goToDirectory path = do
               newVCSPath <- getFSPathForDirectory dir
               goToDirectoryInner newPath (Just newVCSPath) dir' xs
 
-fileContent :: FilePath -> ExceptT FSException (State FSState) B.ByteString
+-- | Returns content of file that coresponds to provided file path.
+-- Throws `NoSuchFileOrDirectory` if there is no such file,
+-- `NotValidPath` if path is invalid.
+fileContent :: FilePath -> ExceptState B.ByteString
 fileContent path = runImmutableFunction getFileContent path
   where
-    getFileContent :: Directory -> [FilePath]
-                   -> ExceptT FSException (State FSState) B.ByteString
+    getFileContent :: Directory -> [FilePath] -> ExceptState B.ByteString
     getFileContent _   []     = throwE NoSuchFileOrDirectory
     getFileContent dir (x:xs) = do
       fileOrDir <- lookupInDirectory dir x
       case fileOrDir of
         (Left file) ->
           if (xs == []) then return $ getFileData file
-          else throwE NotDirectory
+          else throwE NoSuchFileOrDirectory
         (Right dir') ->
           if (xs == []) then throwE NoSuchFileOrDirectory
           else getFileContent dir' xs
 
-information :: FilePath -> ExceptT FSException (State FSState) String
+-- | Accepts path to file/directory and returns information about it as a String.
+-- Throws `NoSuchFileOrDirectory` if there is no such file/directory, `NotValidPath`
+-- if path is invalid.
+information :: FilePath -> ExceptState String
 information path = runImmutableFunction getInformation path
   where
-    getInformation :: Directory -> [FilePath]
-                   -> ExceptT FSException (State FSState) String
-    getInformation dir []     = return $ "ROOT Directory\n" ++
-                                            (show $ getDirInfo dir)
+    getInformation :: Directory -> [FilePath] -> ExceptState String
+    getInformation dir [] = return $ "ROOT Directory\n" ++ (show $ getDirInfo dir)
     getInformation dir (x:xs) = do
       a <- lookupInDirectory dir x
       case a of
@@ -177,24 +196,26 @@ information path = runImmutableFunction getInformation path
           if (xs == []) then
             return $ intercalate "\n" $ [getFileName, show . getFileInfo] <*> [file]
           else
-            throwE NotDirectory
+            throwE NoSuchFileOrDirectory
         (Right dir') -> do
           if (xs == []) then
               return $ intercalate "\n" $ [getDirName, show . getDirInfo] <*> [dir']
           else
             getInformation dir' xs
 
-directoryContent :: FilePath -> ExceptT FSException (State FSState) String
+-- | Accepts path to directory and returns its content as a String.
+-- Throws `NoSuchFileOrDirectory` if there is no such file/directory, `NotValidPath`
+-- if path is invalid.
+directoryContent :: FilePath -> ExceptState String
 directoryContent path = runImmutableFunction showContentInDirectory path
   where
-    showContentInDirectory :: Directory -> [FilePath]
-                           -> ExceptT FSException (State FSState) String
+    showContentInDirectory :: Directory -> [FilePath] -> ExceptState String
     showContentInDirectory dir [] =
       return $ intercalate ("\n") $ map fst $ Map.toList $ getDirContents dir
     showContentInDirectory dir (x:xs) = do
       fileOrDir <- lookupInDirectory dir x
       case fileOrDir of
-        (Left _    ) -> throwE NotDirectory
+        (Left _    ) -> throwE NoSuchFileOrDirectory
         (Right dir') -> showContentInDirectory dir' xs
 
 runImmutableFunction :: forall a. (Directory -> [FilePath] -> (ExceptState a))

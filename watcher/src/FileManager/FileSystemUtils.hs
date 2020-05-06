@@ -1,31 +1,43 @@
-module FileManager.FileSystemUtils where
+module FileManager.FileSystemUtils
+  ( lookupInDirectory
+  , getCurFSDirectory
+  , getDirElementByPath
+  , getFileByPath
+  , getDirectoryByPath
+  , updateSpecialPaths
+  , updateFileSystem
+  , retractVCSStorage
+  , getVCSPath
+  , getAllFilesInDirAndSubDirs
+  ) where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
+import Data.Either (lefts, rights)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isNothing)
 import FileManager.FilePathUtils
 import FileManager.FileSystemTypes
 import System.FilePath ((</>))
 
-lookupInDirectory :: Directory -> String -> ExceptT FSException (State FSState) DirElement
+lookupInDirectory :: Directory -> String -> ExceptState DirElement
 lookupInDirectory dir name =
   case Map.lookup name (getDirContents dir) of
     Nothing  -> throwE NoSuchFileOrDirectory
     (Just a) -> return a
 
-getCurFSDirectory :: ExceptT FSException (State FSState) Directory
+getCurFSDirectory :: ExceptState Directory
 getCurFSDirectory = do
   FSState{curDirectoryPath = path} <- get
   getDirectoryByPath path `catchE` (\_ -> throwE FSInconsistent)
 
-getDirElementByPath :: FilePath -> ExceptT FSException (State FSState) DirElement
+getDirElementByPath :: FilePath -> ExceptState DirElement
 getDirElementByPath path = do
   FSState{curFileSystem = fs} <- get
   normSplittedPath <- getNormalisedSplittedPath path
   getDirElement (getRootDirectory fs) normSplittedPath
   where
-    getDirElement :: Directory -> [FilePath] -> ExceptT FSException (State FSState) DirElement
+    getDirElement :: Directory -> [FilePath] -> ExceptState DirElement
     getDirElement dir [] = return $ Right dir
     getDirElement dir (x : xs) = do
       fileOrDir <- lookupInDirectory dir x
@@ -35,14 +47,14 @@ getDirElementByPath path = do
           else throwE NoSuchFileOrDirectory
         (Right dir') -> getDirElement dir' xs
 
-getFileByPath :: FilePath -> ExceptT FSException (State FSState) File
+getFileByPath :: FilePath -> ExceptState File
 getFileByPath path = do
   fileOrDir <- getDirElementByPath path
   case fileOrDir of
     (Left  file) -> return file
     (Right _   ) -> throwE NoSuchFileOrDirectory
 
-getDirectoryByPath :: FilePath -> ExceptT FSException (State FSState) Directory
+getDirectoryByPath :: FilePath -> ExceptState Directory
 getDirectoryByPath path = do
   fileOrDir <- getDirElementByPath path
   case fileOrDir of
@@ -71,7 +83,7 @@ updateSpecialPaths = do
               let maybePath' = if (isNothing $ getVCSStorage dir') then maybePath else Just newAcc
               helper newAcc maybePath' xs dir'
 
-updateFileSystem :: FilePath -> Directory -> ExceptT FSException (State FSState) ()
+updateFileSystem :: FilePath -> Directory -> ExceptState ()
 updateFileSystem path newDir = do
   st@FSState{curFileSystem = fs} <- get
   let rootDir = getRootDirectory fs
@@ -80,8 +92,7 @@ updateFileSystem path newDir = do
   let newFs = fs{getRootDirectory = newRootDir}
   put st{curFileSystem = newFs}
   where
-    updateDir :: Directory -> Directory -> [FilePath]
-              ->  ExceptT FSException (State FSState) Directory
+    updateDir :: Directory -> Directory -> [FilePath] -> ExceptState Directory
     updateDir _   nDir []     = return nDir
     updateDir dir nDir (x:xs) = do
       fileOrDir <- lookupInDirectory dir x
@@ -93,16 +104,22 @@ updateFileSystem path newDir = do
           let newDirContents = Map.insert x (Right updatedDir) dirContents
           return dir{getDirContents = newDirContents}
 
-retractVCSStorage :: Directory -> ExceptT FSException (State FSState) VCSStorage
+retractVCSStorage :: Directory -> ExceptState VCSStorage
 retractVCSStorage dir = do
   let maybeStorage = getVCSStorage dir
   case maybeStorage of
     Nothing  -> throwE $ VCSException "VCS isn't initialized"
     (Just s) -> return s
 
-getVCSPath :: ExceptT FSException (State FSState) FilePath
+getVCSPath :: ExceptState FilePath
 getVCSPath = do
   FSState{curVCSPath = maybePath} <- get
   case maybePath of
     Nothing  -> throwE $ ImpossibleToPerform "Current directory is not a part of VCS"
     (Just p) -> return p
+
+getAllFilesInDirAndSubDirs :: Directory -> ExceptState [File]
+getAllFilesInDirAndSubDirs curDir = do
+  let dirElements = map (\x -> snd x) $ Map.toList $ getDirContents curDir
+  filesInSubDir <- mapM getAllFilesInDirAndSubDirs (rights dirElements)
+  return $ (lefts dirElements) ++ (concat filesInSubDir)
