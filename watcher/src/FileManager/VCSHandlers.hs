@@ -115,14 +115,18 @@ removeFromVCS path = do
       normPath <- getNormalisedPath realPath
       let filesData = getVCSFiles storage
       let absPath = (getPathToRootDirectory fs) </> normPath
-      if (Map.member absPath filesData) then do
-        let newFilesData = Map.delete absPath filesData
-        let newDir = vcsDir{getVCSStorage = Just storage{getVCSFiles = newFilesData}}
-        updateFileSystem vcsPath newDir
-        return $ "Deleted file from VCS: " ++ absPath
-      else
-        throwE $ VCSException $ "no such file in VCS: " ++ absPath
+      isInVCS filesData absPath ("no such file in VCS: " ++ absPath)
+      let newFilesData = Map.delete absPath filesData
+      let newDir = vcsDir{getVCSStorage = Just storage{getVCSFiles = newFilesData}}
+      updateFileSystem vcsPath newDir
+      return $ "Deleted file from VCS: " ++ absPath
 
+
+-- | Removes specified revision of specified file from VCS and returns operation's status message.
+-- If there are no more revisions stored, deletes file from VCS. Updates state.
+--  Throws `VCSException` if there is no such file in VCS or there is no such revisiom,
+-- `NotValidPath` if path is invalid, `ImpossibleToPerform`
+-- if current directory isn't a part of VCS.
 removeFileRevFromVCS :: (FilePath, Integer) -> ExceptState String
 removeFileRevFromVCS (path, index) = do
   FSState{curDirectoryPath = curPath} <- get
@@ -142,7 +146,7 @@ removeFileRevFromVCS (path, index) = do
       let absPath = (getPathToRootDirectory fs) </> normPath
       isInVCS filesData absPath ("no such file in VCS: " ++ absPath)
       let fileVersions = filesData Map.! absPath
-      isInVCS fileVersions index ("no such index " ++ (show index) ++ "for specified file")
+      isInVCS fileVersions index ("no such index " ++ (show index) ++ " for specified file")
       let newFileVersions = Map.delete index fileVersions
       let newFilesData = if (Map.null newFileVersions) then (Map.delete absPath filesData)
               else (Map.insert absPath newFileVersions filesData)
@@ -150,13 +154,12 @@ removeFileRevFromVCS (path, index) = do
       updateFileSystem vcsPath newDir
       return $ "Deleted version with index " ++ (show index) ++ "of file" ++ absPath
 
-isInVCS :: Ord a => (Map.Map a b) -> a -> String  -> ExceptState ()
+isInVCS :: Ord a => (Map.Map a b) -> a -> String -> ExceptState ()
 isInVCS mp element message = do
   if Map.member element mp then
     return ()
   else
     throwE $ VCSException message
-
 
 -- | Returns whole VCS history in chronological order (as a String).
 -- Throws `ImpossibleToPerform` if current directory is not a part of VCS.

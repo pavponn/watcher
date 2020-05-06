@@ -9,8 +9,8 @@ import Control.Monad.Trans.Except
 import Data.List (intercalate, unfoldr)
 import FileManager.FileSystemTypes
 import System.FilePath (isPathSeparator, pathSeparator)
-import System.FilePath.Posix (dropTrailingPathSeparator, joinPath, normalise,
-                              splitDirectories, makeRelative)
+import System.FilePath.Posix (dropTrailingPathSeparator, joinPath, makeRelative, normalise,
+                              splitDirectories)
 
 getFSPathForDirectory :: Directory -> ExceptT FSException (State FSState) FilePath
 getFSPathForDirectory dir = do
