@@ -10,7 +10,7 @@ import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, di
 import FileManager.FileSystemTypes
 import FileManager.Loader (getFileSystem)
 import FileManager.VCSHandlers (addToVCS, fileHistoryVCS, fileVersionVCS, initVCS, showCurVCS,
-                                updateInVCS, allHistoryVCS, removeFromVCS)
+                                updateInVCS, allHistoryVCS, removeFromVCS, removeFileRevFromVCS)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
@@ -39,6 +39,7 @@ data Command
   | VCSCat FilePath Integer
   | VCSShowAll
   | VCSRemove FilePath
+  | VCSRemoveRev FilePath Integer
   | Debug
   | ShowVCS
 
@@ -79,8 +80,9 @@ runInteractive st = do
         VCSAdd path           -> handleOperationString addToVCS path
         VCSUpdate path msg    -> handleOperationString updateInVCS (path, msg)
         VCSHistory path       -> handleOperationString fileHistoryVCS path
-        VCSCat path index     -> handleOperationByteString fileVersionVCS (path, index)
+        VCSCat path i         -> handleOperationByteString fileVersionVCS (path, i)
         VCSRemove path        -> handleOperationString removeFromVCS path
+        VCSRemoveRev path i   -> handleOperationString removeFileRevFromVCS (path, i)
         VCSShowAll            -> handleOperationString0 allHistoryVCS
 
   where
@@ -146,6 +148,7 @@ programOptions =
     <> vcsHistoryCommand
     <> vcsCatCommand
     <> vcsRemoveCommand
+    <> vcsRemoveRevCommand
     <> vcsShowAllCommand
     <> showVCSCommand
     <> debugCommand
@@ -219,6 +222,10 @@ programOptions =
     vcsRemoveCommand = command
       "vcs-remove"
       (info vcsRemoveOptions (progDesc "remove specified file from VCS"))
+    vcsRemoveRevCommand :: Mod CommandFields Command
+    vcsRemoveRevCommand = command
+      "vcs-remove-rev"
+      (info vcsRemoveRevOptions (progDesc "remove specified revision of specified file from VCS"))
     vcsShowAllCommand :: Mod CommandFields Command
     vcsShowAllCommand = command
       "vcs-show-all"
@@ -267,6 +274,10 @@ programOptions =
     vcsRemoveOptions :: Parser Command
     vcsRemoveOptions = VCSRemove <$>
       strArgument (metavar "PATH" <> help "Path to file to be deleted from VCS")
+    vcsRemoveRevOptions :: Parser Command
+    vcsRemoveRevOptions = VCSRemoveRev <$>
+      strArgument (metavar "PATH" <> help "Path to file that is in VCS") <*>
+      argument auto (metavar "INDEX" <> help "Index of file in vcs")
     debugCommand :: Mod CommandFields Command
     debugCommand = command
       "debug"

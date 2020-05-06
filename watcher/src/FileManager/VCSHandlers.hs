@@ -7,6 +7,7 @@ module FileManager.VCSHandlers
   , fileVersionVCS
   , allHistoryVCS
   , removeFromVCS
+  , removeFileRevFromVCS
   )where
 
 import Control.Monad.State
@@ -121,6 +122,41 @@ removeFromVCS path = do
         return $ "Deleted file from VCS: " ++ absPath
       else
         throwE $ VCSException $ "no such file in VCS: " ++ absPath
+
+removeFileRevFromVCS :: (FilePath, Integer) -> ExceptState String
+removeFileRevFromVCS (path, index) = do
+  FSState{curDirectoryPath = curPath} <- get
+  if (isAbsolute path) then
+    removeFileRevFromVCSInner path
+  else do
+    removeFileRevFromVCSInner (curPath </> path)
+  where
+    removeFileRevFromVCSInner :: FilePath -> ExceptState String
+    removeFileRevFromVCSInner realPath = do
+      FSState{curFileSystem = fs} <- get
+      vcsPath <- getVCSPath
+      vcsDir <- getDirectoryByPath vcsPath
+      storage <- retractVCSStorage vcsDir
+      normPath <- getNormalisedPath realPath
+      let filesData = getVCSFiles storage
+      let absPath = (getPathToRootDirectory fs) </> normPath
+      isInVCS filesData absPath ("no such file in VCS: " ++ absPath)
+      let fileVersions = filesData Map.! absPath
+      isInVCS fileVersions index ("no such index " ++ (show index) ++ "for specified file")
+      let newFileVersions = Map.delete index fileVersions
+      let newFilesData = if (Map.null newFileVersions) then (Map.delete absPath filesData)
+              else (Map.insert absPath newFileVersions filesData)
+      let newDir = vcsDir{getVCSStorage = Just storage{getVCSFiles = newFilesData}}
+      updateFileSystem vcsPath newDir
+      return $ "Deleted version with index " ++ (show index) ++ "of file" ++ absPath
+
+isInVCS :: Ord a => (Map.Map a b) -> a -> String  -> ExceptState ()
+isInVCS mp element message = do
+  if Map.member element mp then
+    return ()
+  else
+    throwE $ VCSException message
+
 
 -- | Returns whole VCS history in chronological order (as a String).
 -- Throws `ImpossibleToPerform` if current directory is not a part of VCS.
