@@ -1,4 +1,4 @@
-module FileManager.Loader
+module Loaders.Loader
   ( getFileSystem
   ) where
 

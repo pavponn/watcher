@@ -20,13 +20,12 @@ import Data.Either (lefts, rights)
 import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import Data.Time.Clock (UTCTime (..))
-import FileManager.FilePathUtils
 import FileManager.FileSystemTypes
-import FileManager.FileSystemUtils (getAllFilesInDirAndSubDirs, getCurFSDirectory,
-                                    getDirectoryByPath, lookupInDirectory, updateFileSystem,
-                                    updateSpecialPaths)
 import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute, joinPath, splitFileName)
+import Utils.FilePathUtils
+import Utils.FileSystemUtils (getAllFilesInDirAndSubDirs, getCurFSDirectory, getDirectoryByPath,
+                              lookupInDirectory, updateFileSystem, updateSpecialPaths)
 
 debugFS :: FilePath -> ExceptState FilePath
 debugFS _ = do

@@ -2,16 +2,16 @@ module Main where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
-import Data.Time.Clock (getCurrentTime)
 import qualified Data.ByteString.Char8 as B
 import Data.Semigroup ((<>))
+import Data.Time.Clock (getCurrentTime)
 import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, directoryContent,
                                         fileContent, findFile, goToDirectory, information,
                                         removeFileOrDirectory, writeToFile)
 import FileManager.FileSystemTypes
-import FileManager.Loader (getFileSystem)
 import FileManager.VCSHandlers (addToVCS, allHistoryVCS, fileHistoryVCS, fileVersionVCS, initVCS,
                                 mergeFileRevsVCS, removeFileRevFromVCS, removeFromVCS, updateInVCS)
+import Loaders.Loader (getFileSystem)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)

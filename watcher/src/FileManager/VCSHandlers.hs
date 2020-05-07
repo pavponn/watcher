@@ -17,11 +17,11 @@ import Data.List (concat, intercalate, isPrefixOf, sort)
 import qualified Data.Map.Strict as Map
 import Data.Time.Clock (UTCTime)
 import FileManager.FileManagerHandlers (writeToFile)
-import FileManager.FilePathUtils
 import FileManager.FileSystemTypes
-import FileManager.FileSystemUtils
 import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute)
+import Utils.FilePathUtils
+import Utils.FileSystemUtils
 
 type VCSMap = Map.Map FilePath (Map.Map Integer (File, String))
 

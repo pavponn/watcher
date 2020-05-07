@@ -21,10 +21,11 @@ executable watcher
   main-is:             Main.hs
   other-modules:       FileManager.FileSystemTypes
                      , FileManager.FileManagerHandlers
-                     , FileManager.Loader
-                     , FileManager.FilePathUtils
-                     , FileManager.FileSystemUtils
+                     , Utils.FilePathUtils
+                     , Utils.FileSystemUtils
                      , FileManager.VCSHandlers
+                     , Loaders.Loader
+                     , Loaders.Uploader
   -- other-extensions:
   ghc-options:         -Wall -Werror
   build-depends:       base >=4.9 && < 5

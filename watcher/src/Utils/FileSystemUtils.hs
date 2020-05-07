@@ -2,7 +2,7 @@
 This module contains helper functions for manipulating `FSState`
 and FileSystem. There is no reason to use it apart from others.
 -}
-module FileManager.FileSystemUtils
+module Utils.FileSystemUtils
   ( lookupInDirectory
   , getCurFSDirectory
   , getDirElementByPath
@@ -20,7 +20,7 @@ import Control.Monad.Trans.Except
 import Data.Either (lefts, rights)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isNothing)
-import FileManager.FilePathUtils
+import Utils.FilePathUtils
 import FileManager.FileSystemTypes
 import System.FilePath ((</>))
 

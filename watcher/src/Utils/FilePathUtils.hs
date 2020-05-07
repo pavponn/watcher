@@ -1,4 +1,4 @@
-module FileManager.FilePathUtils
+module Utils.FilePathUtils
   ( getNormalisedPath
   , getNormalisedSplittedPath
   , getFSPathForDirectory
