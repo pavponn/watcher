@@ -74,16 +74,15 @@ data FSState = FSState
 
 -- | Represents exceptions that can occur while working with file system.
 data FSException
-  = NoSuchFileOrDirectory
+  = NotFile
   | NotDirectory
-  | NotFile
   | FileNotFound
-  | DuplicateFileOrDirectory String
-  | UnsupportedOperation String
-  | NotValidPath String
+  | NotValidPath FilePath
   | VCSException String
+  | NoSuchFileOrDirectory
+  | UnsupportedOperation String
+  | DuplicateFileOrDirectory String
   | FSInconsistent
-  deriving (Show)
 
 -- | Typealias for monad we're working in. Just to make it shorter.
 type ExceptState a = ExceptT FSException (State FSState) a
@@ -111,6 +110,20 @@ instance Show DirInfo where
 
 instance Show VCSStorage where
   show storage = (show $ getRevisionsNum storage) ++ (show $ getVCSFiles storage)
+
+instance Show FSException where
+  show NotFile = "not a path to file."
+  show NotDirectory = "not a path to directory."
+  show FileNotFound = "there is no such file in directory with matching name."
+  show (NotValidPath path) = "path" ++  path ++ " is invalid.\n" ++
+    "There might be a problem in \"..\". Remember, watcher treats it's main directory" ++
+    "as a root and knows nothing else about your real file system that is out of it."
+  show (VCSException msg) = msg
+  show NoSuchFileOrDirectory = "no such file or directory."
+  show (UnsupportedOperation msg) = "unsuppored operation (" ++ msg ++ ")."
+  show (DuplicateFileOrDirectory name) = "file or directory with name " ++ name ++ "already exists."
+  show FSInconsistent = "that's really sad. May you please provide sequence of" ++
+    "actions that has leaded to this result?"
 
 -- | Returns file with specified name and path in `FileInfo`.
 defaultNewFile :: String -> FilePath -> UTCTime -> File

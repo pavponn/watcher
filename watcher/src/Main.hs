@@ -90,25 +90,25 @@ runInteractive st = do
     handleOperationVoid foo arg = do
       let (res, newState) = runState (runExceptT $ foo arg) st
       case res of
-        (Left err) -> putStrLn $ show err
+        (Left err) -> putStrLn $ "Oops: " ++ (show err)
         (Right _ ) -> return ()
       runInteractive newState
     handleOperationString0 foo = do
       let (res, newState) = runState (runExceptT foo) st
       case res of
-        (Left err) -> putStrLn $ show err
+        (Left err) -> putStrLn $ "Oops: " ++ (show err)
         (Right s ) -> putStrLn s
       runInteractive newState
     handleOperationString foo arg = do
       let (res, newState) = runState (runExceptT $ foo arg) st
       case res of
-        (Left err) -> putStrLn $ show err
+        (Left err) -> putStrLn $ "Oops: " ++ (show err)
         (Right s ) -> putStrLn s
       runInteractive newState
     handleOperationByteString foo arg = do
       let (res, newState) = runState (runExceptT $ foo arg) st
       case res of
-        (Left err) -> putStrLn $ show err
+        (Left err) -> putStrLn $ "Oops: " ++ (show err)
         (Right s ) -> B.putStrLn s
       runInteractive newState
 
