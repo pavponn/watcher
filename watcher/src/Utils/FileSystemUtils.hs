@@ -13,6 +13,8 @@ module Utils.FileSystemUtils
   , retractVCSStorage
   , getVCSPath
   , getAllFilesInDirAndSubDirs
+  , checkFileWritablePermissions
+  , checkDirWritablePermissions
   ) where
 
 import Control.Monad.State
@@ -23,6 +25,7 @@ import Data.Maybe (isNothing)
 import Utils.FilePathUtils
 import FileManager.FileSystemTypes
 import System.FilePath ((</>))
+import System.Directory (writable)
 
 -- | Returns `DirElement` if one with given name exist in `Directory`, otherwise
 -- throws `NoSuchFileOrDirectory`.
@@ -144,3 +147,18 @@ getAllFilesInDirAndSubDirs curDir = do
   let dirElements = map (\x -> snd x) $ Map.toList $ getDirContents curDir
   filesInSubDir <- mapM getAllFilesInDirAndSubDirs (rights dirElements)
   return $ (lefts dirElements) ++ (concat filesInSubDir)
+
+
+checkFileWritablePermissions :: File -> ExceptState ()
+checkFileWritablePermissions file = do
+  if (not $ writable $ getFilePermissions $ getFileInfo file) then
+    throwE $ PermissionsDenied $ getFilePath $ getFileInfo file
+  else
+    return ()
+
+checkDirWritablePermissions :: Directory -> ExceptState ()
+checkDirWritablePermissions dir = do
+  if (not $ writable $ getDirPermissions $ getDirInfo dir) then
+    throwE $ PermissionsDenied $ getDirPath $ getDirInfo dir
+  else
+    return ()

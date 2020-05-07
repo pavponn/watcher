@@ -21,12 +21,10 @@ import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import Data.Time.Clock (UTCTime (..))
 import FileManager.FileSystemTypes
--- import System.Directory (searchable)
 import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute, joinPath, splitFileName)
 import Utils.FilePathUtils
-import Utils.FileSystemUtils (getAllFilesInDirAndSubDirs, getCurFSDirectory, getDirectoryByPath,
-                              lookupInDirectory, updateFileSystem, updateSpecialPaths)
+import Utils.FileSystemUtils
 
 debugFS :: FilePath -> ExceptState FilePath
 debugFS _ = do
@@ -65,6 +63,7 @@ createDirectory :: String -> ExceptState ()
 createDirectory name = do
   FSState{curFileSystem = fs, curDirectoryPath = relDirPath} <- get
   curDir <- getCurFSDirectory
+  checkDirWritablePermissions curDir
   if (Map.member name (getDirContents curDir)) then
     throwE $ DuplicateFileOrDirectory name
   else do
@@ -79,6 +78,7 @@ createFile :: (String, UTCTime) -> ExceptState ()
 createFile (name, time) = do
   FSState{curFileSystem = fs, curDirectoryPath = relDirPath} <- get
   curDir <- getCurFSDirectory
+  checkDirWritablePermissions curDir
   if (Map.member name (getDirContents curDir)) then
     throwE $ DuplicateFileOrDirectory name
   else do
@@ -129,6 +129,7 @@ writeToFile (content, path, curTime) = do
       case (fileOrDir) of
         (Right _  ) -> throwE NotFile
         (Left file) -> do
+          checkFileWritablePermissions file
           let fileInfo = getFileInfo file
           let newFileInfo = fileInfo
                               { getFileSizeBytes = (toInteger . B.length) content

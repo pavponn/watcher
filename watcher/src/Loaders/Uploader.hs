@@ -9,7 +9,7 @@ import Data.Either (partitionEithers)
 import qualified Data.Map.Strict as Map
 import FileManager.FileSystemTypes
 import System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive,
-                         removeFile)
+                         removeFile, writable)
 import System.FilePath.Posix (takeDirectory, (</>))
 import Utils.LoaderUtils (isDirectory, isFile, listExceptionHandler)
 
@@ -39,7 +39,10 @@ uploadFile file = do
   let filePath = getFilePath $ getFileInfo file
   let content = getFileData file
   createDirectoryIfMissing True $ takeDirectory filePath
-  B.writeFile filePath content `catch` nezapisalos file
+  if (not $ writable $ getFilePermissions $ getFileInfo file) then
+    return ()
+  else
+    B.writeFile filePath content `catch` nezapisalos file
 
 removeDirectorySafe :: FilePath -> IO ()
 removeDirectorySafe path = do
