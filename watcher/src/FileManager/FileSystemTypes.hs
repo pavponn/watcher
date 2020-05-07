@@ -95,7 +95,7 @@ instance Show File where
 instance Show FileInfo where
   show file = intercalate "\n"
     [ "Path: " ++ (show $ getFilePath file)
-    , "Size: " ++ (show $ getFileSizeBytes file)
+    , "Size: " ++ (show $ getFileSizeBytes file) ++ " bytes"
     , "Types: " ++ (intercalate ", " $ getFileTypes file)
     , "Permissions: " ++ (customPermissionsShow $ getFilePermissions file)
     , "Modification time: " ++ (show $ getFileModificationTime file)
