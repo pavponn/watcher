@@ -47,6 +47,7 @@ data Command
 main :: IO ()
 main = do
   a <- (\x -> if x == [] then "" else head x) <$> getArgs
+  -- maybe error here
   fs <- makeAbsolute a >>= \curDir -> getFileSystem curDir
   let initState = FSState fs "" Nothing
   runInteractive initState

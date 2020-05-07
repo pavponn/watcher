@@ -100,12 +100,11 @@ instance Show FileInfo where
     , "Modification time: " ++ (show $ getFileModificationTime file)
     ]
 
-
 instance Show DirInfo where
   show dir = intercalate "\n"
     [ "Path: " ++ (show $ getDirPath dir)
     , "Size: " ++ (show $ getDirSize dir) ++ " bytes"
-    , "Permissions: " ++ (show $ getDirPermissions dir)
+    , "Permissions: " ++ (customPermissionsShow $ getDirPermissions dir)
     ]
 
 instance Show VCSStorage where
