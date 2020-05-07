@@ -130,12 +130,12 @@ retractVCSStorage dir = do
     (Just s) -> return s
 
 -- | Returns path to closest directory, where VCS was initialised, In case, there is
--- no such directory it will throw `ImpossibleToPerform`,
+-- no such directory it will throw `UnsupportedOperation`,
 getVCSPath :: ExceptState FilePath
 getVCSPath = do
   FSState{curVCSPath = maybePath} <- get
   case maybePath of
-    Nothing  -> throwE $ ImpossibleToPerform "Current directory is not a part of VCS"
+    Nothing  -> throwE $ UnsupportedOperation "Current directory is not a part of VCS"
     (Just p) -> return p
 
 -- | Returns list of files from given directory and its subdirectories.

@@ -41,7 +41,7 @@ initVCS = do
 
 -- | Adds file/directory (all files in directory and its subdirectories)
 -- that coresponds to provided path to current VCS.
--- Updates state (file system). Throws `ImpossibleToPerform` if current directory
+-- Updates state (file system). Throws `UnsupportedOperation` if current directory
 -- is not a part of VCS or filepath is outside of it, NoSuchFileOrDirectory`
 -- if there is no such file, `NotValidPath` if path is invalid.
 addToVCS :: FilePath -> ExceptState String
@@ -62,11 +62,11 @@ addToVCS path = do
           (Left file) -> addFile vcsPath file
           (Right dir) -> addDir vcsPath dir
       else
-        throwE $ ImpossibleToPerform "path to file/directory is not a part of VCS"
+        throwE $ UnsupportedOperation "path to file/directory is not a part of VCS"
 
 -- | Updates file that coresponds to provided path in VCS with message.
 -- Returns string info on operation status. Throws `VCSException` if path is a path
--- to directory, `ImpossibleToPerform` if provided  file can't be tracked by
+-- to directory, `UnsupportedOperation` if provided  file can't be tracked by
 -- VCS/or there is no VCS in current directory, NoSuchFileOrDirectory`
 -- if there is no such file, `NotValidPath` if path is invalid.
 updateInVCS :: (FilePath, String) -> ExceptState String
@@ -87,11 +87,11 @@ updateInVCS (path, message) = do
             (Left file) -> updateFile vcsPath file msg
             (Right _  ) -> throwE $ VCSException "can't update directories"
         else
-          throwE $ ImpossibleToPerform "path to file/directory is not a part of VCS"
+          throwE $ UnsupportedOperation "path to file/directory is not a part of VCS"
 
 -- | Removes file from VCS and returns operation's status message.
 --  Updates state. Throws `VCSException` if there is no such file in VCS,
--- `NotValidPath` if path is invalid, `ImpossibleToPerform`
+-- `NotValidPath` if path is invalid, `UnsupportedOperation`
 -- if current directory isn't a part of VCS.
 removeFromVCS :: FilePath -> ExceptState String
 removeFromVCS path = do
@@ -119,7 +119,7 @@ removeFromVCS path = do
 -- | Removes specified revision of specified file from VCS and returns operation's status message.
 -- If there are no more revisions stored, deletes file from VCS. Updates state.
 -- Throws `VCSException` if there is no such file in VCS or there is no such revision,
--- `NotValidPath` if path is invalid, `ImpossibleToPerform`
+-- `NotValidPath` if path is invalid, `UnsupportedOperation`
 -- if current directory isn't a part of VCS.
 removeFileRevFromVCS :: (FilePath, Integer) -> ExceptState String
 removeFileRevFromVCS (path, index) = do
@@ -151,7 +151,7 @@ removeFileRevFromVCS (path, index) = do
 -- | Merges two revisions of one file from VCS according to passed
 -- `strategy` and writes result to specified file.
 -- Throws `VCSException` if there is no such file in VCS or there is no such revision
--- or strategy is not defined, `NotValidPath` if path is invalid, `ImpossibleToPerform`
+-- or strategy is not defined, `NotValidPath` if path is invalid, `UnsupportedOperation`
 -- if current directory isn't a part of VCS. If file has been deleted from
 -- file system but not VCS, throws `NoSuchFileOrDirectory`.
 mergeFileRevsVCS :: (FilePath, Integer, Integer, String, UTCTime) -> ExceptState String
@@ -186,7 +186,7 @@ mergeFileRevsVCS (path, index1, index2, strategy, curTime) = do
         _       -> throwE $ VCSException $ "Unknown merge strategy : " ++ strategy
 
 -- | Returns whole VCS history in chronological order (as a String).
--- Throws `ImpossibleToPerform` if current directory is not a part of VCS.
+-- Throws `UnsupportedOperation` if current directory is not a part of VCS.
 allHistoryVCS :: ExceptState String
 allHistoryVCS = do
   vcsPath <- getVCSPath
@@ -199,7 +199,7 @@ allHistoryVCS = do
             map (\(i, m, n) -> (show i) ++ ". " ++ m ++ " (" ++ n ++ ")") list
 
 -- | Accepts path to file and returns it's history from VCS in chronological order
--- (as a String). Throws `ImpossibleToPerform` if current directory is not a part of VCS,
+-- (as a String). Throws `UnsupportedOperation` if current directory is not a part of VCS,
 -- `VCSException` if there is no such file in VCS.
 fileHistoryVCS :: FilePath -> ExceptState String
 fileHistoryVCS path = do
@@ -217,7 +217,7 @@ fileHistoryVCS path = do
       return $ intercalate "\n" $ map (\(r, s) -> (show r) ++ ". " ++ s) historyList
 
 -- | Accepts path to file and revision's index, return file's content for specified
--- index. Throws `ImpossibleToPerform` if current directory is not a part of VCS,
+-- index. Throws `UnsupportedOperation` if current directory is not a part of VCS,
 -- `VCSException` if there is no such file in VCS or there is no revision with such index.
 fileVersionVCS :: (FilePath, Integer) -> ExceptState B.ByteString
 fileVersionVCS (path, index) = do
@@ -282,7 +282,7 @@ updateMap file msg rev filesData = do
   let absPath = getFilePath $ getFileInfo file
   case (Map.lookup absPath filesData) of
     Nothing ->
-     throwE $ ImpossibleToPerform $ "file " ++ absPath ++ "isn't in VCS"
+     throwE $ UnsupportedOperation $ "file " ++ absPath ++ "isn't in VCS"
     (Just revMap) -> do
       let newRevMap = Map.insert rev (file,msg) revMap
       let newFilesData = Map.insert absPath newRevMap filesData

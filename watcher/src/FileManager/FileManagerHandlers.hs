@@ -35,7 +35,7 @@ debugFS _ = do
 
 -- | Accepts path to file or directory and removes it from file system,
 -- changing current state: file system and all current paths.
--- Throws `NotValidPath` if path is invalid, throws `ImpossibleToPerform`,
+-- Throws `NotValidPath` if path is invalid, throws `UnsupportedOperation`,
 -- if path is a path to root directory.
 removeFileOrDirectory :: FilePath -> ExceptState ()
 removeFileOrDirectory path = do
@@ -49,7 +49,7 @@ removeFileOrDirectory path = do
       normPath <- getNormalisedPath realPath
       let (pathToContDir, name) = splitFileName $ normPath
       if (name == []) then
-        throwE $ ImpossibleToPerform $ "Can't remove " ++ path
+        throwE $ UnsupportedOperation $ "Can't remove " ++ path
       else do
         dir <- getDirectoryByPath pathToContDir
         let newContent = Map.delete name (getDirContents dir)

@@ -79,7 +79,6 @@ data FSException
   | DuplicateFileOrDirectory String
   | UnsupportedOperation String
   | NotValidPath String
-  | ImpossibleToPerform String
   | VCSException String
   | FSInconsistent
   deriving (Show)
