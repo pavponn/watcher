@@ -139,4 +139,4 @@ defaultVCSStorage = VCSStorage Map.empty 0
 customPermissionsShow :: Permissions -> String
 customPermissionsShow (Permissions r w e s) =
   "readable = " ++ (show r) ++ ", writable = " ++ (show w) ++
-    ", executable = " ++ (show e) ++ "searchable = " ++ (show s)
+    ", executable = " ++ (show e) ++ ", searchable = " ++ (show s)
