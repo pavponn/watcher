@@ -6,8 +6,10 @@ import qualified Data.Map.Strict as Map
 import Control.Monad.State
 import Control.Monad.Trans.Except
 import Data.List (intercalate)
+import qualified Data.Text as T
 import Data.Time.Clock (UTCTime (..))
-import System.Directory.Internal (Permissions(..))
+import Network.Mime (fileNameExtensions)
+import System.Directory.Internal (Permissions (..))
 import System.FilePath.Posix ((</>))
 
 -- |Type alias for elements in directory. Element in directory is
@@ -16,7 +18,7 @@ type DirElement = Either File Directory
 
 -- | Data type that stores all useful information about file.
 data FileInfo = FileInfo
-  { getFileType             :: String
+  { getFileTypes            :: [String]
   , getFilePath             :: FilePath
   , getFileSizeBytes        :: Integer
   , getFilePermissions      :: Permissions
@@ -25,9 +27,9 @@ data FileInfo = FileInfo
 
 -- | Data type that stores all useful information about directory.
 data DirInfo = DirInfo
-  { getDirSize             :: Integer
-  , getDirPath             :: FilePath
-  , getDirPermissions      :: Permissions
+  { getDirSize        :: Integer
+  , getDirPath        :: FilePath
+  , getDirPermissions :: Permissions
   }
 
 -- | Data type that represents file.
@@ -93,11 +95,12 @@ instance Show File where
 instance Show FileInfo where
   show file = intercalate "\n"
     [ "Path: " ++ (show $ getFilePath file)
-    , "Type: " ++ (show $ getFileType file)
     , "Size: " ++ (show $ getFileSizeBytes file)
-    , "Permissions: " ++ (show $ getFilePermissions file)
+    , "Types: " ++ (intercalate ", " $ getFileTypes file)
+    , "Permissions: " ++ (customPermissionsShow $ getFilePermissions file)
     , "Modification time: " ++ (show $ getFileModificationTime file)
     ]
+
 
 instance Show DirInfo where
   show dir = intercalate "\n"
@@ -112,8 +115,9 @@ instance Show VCSStorage where
 -- | Returns file with specified name and path in `FileInfo`.
 defaultNewFile :: String -> FilePath -> UTCTime -> File
 defaultNewFile name path curTime = do
+  let fileTypes = T.unpack <$> (fileNameExtensions . T.pack) name
   let fileInfo = FileInfo {
-        getFileType = "X3 4TO ETO"
+        getFileTypes = fileTypes
       , getFilePath = path </> name
       , getFileSizeBytes = 0
       , getFilePermissions = Permissions True True True True
@@ -131,3 +135,8 @@ defaultNewDirectory name path = do
 -- | Returns empty VCSStorage.
 defaultVCSStorage :: VCSStorage
 defaultVCSStorage = VCSStorage Map.empty 0
+
+customPermissionsShow :: Permissions -> String
+customPermissionsShow (Permissions r w e s) =
+  "readable = " ++ (show r) ++ ", writable = " ++ (show w) ++
+    ", executable = " ++ (show e) ++ "searchable = " ++ (show s)

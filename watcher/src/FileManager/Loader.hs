@@ -5,7 +5,9 @@ module FileManager.Loader
 import Control.Monad
 import qualified Data.ByteString as B
 import qualified Data.Map.Strict as Map
+import qualified Data.Text as T
 import FileManager.FileSystemTypes
+import Network.Mime (fileNameExtensions)
 import System.Directory (doesDirectoryExist, doesFileExist, getFileSize, getModificationTime,
                          getPermissions, listDirectory, pathIsSymbolicLink)
 import System.FilePath.Posix (dropTrailingPathSeparator, splitFileName, (</>))
@@ -38,8 +40,9 @@ visitFile path name = do
   modificationTime <- getModificationTime actualPath
   fileSize <- getFileSize actualPath
   fileData <- B.readFile actualPath
+  let fileTypes = T.unpack <$> (fileNameExtensions . T.pack) name
   let fileInfo = FileInfo
-                   { getFileType = "X3 4TO ETO"
+                   { getFileTypes = fileTypes
                    , getFilePath = actualPath
                    , getFileSizeBytes = fileSize
                    , getFilePermissions = permissions
