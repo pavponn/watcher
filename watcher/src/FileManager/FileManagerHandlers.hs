@@ -22,7 +22,9 @@ import qualified Data.Map.Strict as Map
 import Data.Time.Clock (UTCTime (..))
 import FileManager.FilePathUtils
 import FileManager.FileSystemTypes
-import FileManager.FileSystemUtils
+import FileManager.FileSystemUtils (getAllFilesInDirAndSubDirs, getCurFSDirectory,
+                                    getDirectoryByPath, lookupInDirectory, updateFileSystem,
+                                    updateSpecialPaths)
 import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute, joinPath, splitFileName)
 
@@ -203,8 +205,11 @@ information path = runImmutableFunction getInformation path
           else
             throwE NoSuchFileOrDirectory
         (Right dir') -> do
-          if (xs == []) then
-              return $ intercalate "\n" $ [getDirName, show . getDirInfo] <*> [dir']
+          if (xs == []) then do
+              filesInDirectory <- getAllFilesInDirAndSubDirs dir'
+              return $ intercalate "\n" $
+                  ([getDirName, show . getDirInfo] <*> [dir']) ++
+                    ["Total files: " ++ (show $ length filesInDirectory)]
           else
             getInformation dir' xs
 
