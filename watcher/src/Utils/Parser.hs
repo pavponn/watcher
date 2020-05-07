@@ -73,7 +73,7 @@ stream st = case st of
   []     -> return []
   (x:xs) -> pure (:) <*> element x <*> stream xs
 
--- | Split command line arguments.
+-- | Splits command line arguments.
 splitArguments :: String -> Maybe [String]
 splitArguments str =
   case runParser input str of

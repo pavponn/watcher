@@ -4,6 +4,7 @@ module Utils.LoaderUtils
   , listExceptionHandler
   , permsExceptionHandler
   , falseExceptionHandler
+  , itsokayExceptionHandler
   ) where
 
 import Control.Exception (SomeException, catch)
@@ -28,6 +29,9 @@ isFile path name = do
   isF <- doesFileExist realPath `catch` falseExceptionHandler
   isSymbLink <- pathIsSymbolicLink realPath `catch` falseExceptionHandler
   return $ isF && not isSymbLink
+
+itsokayExceptionHandler :: SomeException -> IO ()
+itsokayExceptionHandler = \_ -> return ()
 
 listExceptionHandler :: SomeException -> IO [FilePath]
 listExceptionHandler = \_ -> return []

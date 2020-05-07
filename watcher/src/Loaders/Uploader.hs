@@ -11,7 +11,7 @@ import FileManager.FileSystemTypes
 import System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive,
                          removeFile, writable)
 import System.FilePath.Posix (takeDirectory, (</>))
-import Utils.LoaderUtils (isDirectory, isFile, listExceptionHandler)
+import Utils.LoaderUtils
 
 uploadFileSystem :: FileSystem -> IO ()
 uploadFileSystem fs = do
