@@ -24,8 +24,9 @@ executable watcher
                      , Utils.FilePathUtils
                      , Utils.FileSystemUtils
                      , Utils.LoaderUtils
+                     , Utils.Parser
                      , FileManager.VCSHandlers
-                     , Loaders.Loader
+                     , Loaders.Downloader
                      , Loaders.Uploader
   -- other-extensions:
   ghc-options:         -Wall -Werror
@@ -34,6 +35,7 @@ executable watcher
                      , time
                      , mtl
                      , bytestring
+                     , utf8-string
                      , containers
                      , filepath
                      , transformers

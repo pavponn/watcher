@@ -1,4 +1,4 @@
-module Loaders.Loader
+module Loaders.Downloader
   ( getFileSystem
   ) where
 
@@ -7,13 +7,14 @@ import Control.Monad
 import qualified Data.ByteString as B
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
-import Utils.LoaderUtils (isDirectory, isFile, listExceptionHandler, permsExceptionHandler)
 import FileManager.FileSystemTypes
 import Network.Mime (fileNameExtensions)
 import System.Directory (getFileSize, getModificationTime, getPermissions, listDirectory)
 import System.FilePath.Posix (dropTrailingPathSeparator, splitFileName, (</>))
 import System.IO.Error (ioError, userError)
+import Utils.LoaderUtils (isDirectory, isFile, listExceptionHandler, permsExceptionHandler)
 
+-- | Returns `FileSystem` with the root at provided filepath.
 getFileSystem :: FilePath -> IO FileSystem
 getFileSystem dirPath = do
   let (path, name) = splitFileName $ dropTrailingPathSeparator dirPath

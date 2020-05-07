@@ -80,6 +80,7 @@ data FSException
   | NotValidPath FilePath
   | VCSException String
   | NoSuchFileOrDirectory
+  | PermissionsDenied FilePath
   | UnsupportedOperation String
   | DuplicateFileOrDirectory String
   | FSInconsistent
@@ -119,6 +120,7 @@ instance Show FSException where
     "as a root and knows nothing else about your real file system that is out of it."
   show (VCSException msg) = msg
   show NoSuchFileOrDirectory = "no such file or directory."
+  show (PermissionsDenied path) = "Permission to " ++ path ++ " denied."
   show (UnsupportedOperation msg) = "unsuppored operation (" ++ msg ++ ")."
   show (DuplicateFileOrDirectory name) = "file or directory with name " ++ name ++ "already exists."
   show FSInconsistent = "that's really sad. May you please provide sequence of" ++
@@ -128,20 +130,14 @@ instance Show FSException where
 defaultNewFile :: String -> FilePath -> UTCTime -> File
 defaultNewFile name path curTime = do
   let fileTypes = T.unpack <$> (fileNameExtensions . T.pack) name
-  let fileInfo = FileInfo {
-        getFileTypes = fileTypes
-      , getFilePath = path </> name
-      , getFileSizeBytes = 0
-      , getFilePermissions = Permissions True True True True
-      , getFileModificationTime = curTime
-      }
+  let perms = Permissions True True False False
+  let fileInfo = FileInfo fileTypes (path </> name) 0 perms curTime
   File name fileInfo B.empty
 
--- TODO: standard size
 -- | Returns new directory with specified name and path in `DirInfo`.
 defaultNewDirectory :: String -> FilePath -> Directory
 defaultNewDirectory name path = do
-  let dirInfo = DirInfo 200 (path </> name) (Permissions True True True True)
+  let dirInfo = DirInfo 200 (path </> name) (Permissions True True False True)
   Directory name dirInfo Map.empty Nothing
 
 -- | Returns empty VCSStorage.

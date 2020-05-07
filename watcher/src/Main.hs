@@ -2,7 +2,8 @@ module Main where
 
 import Control.Monad.State
 import Control.Monad.Trans.Except
-import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.UTF8 as B
 import Data.Semigroup ((<>))
 import Data.Time.Clock (getCurrentTime)
 import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, directoryContent,
@@ -11,12 +12,13 @@ import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, di
 import FileManager.FileSystemTypes
 import FileManager.VCSHandlers (addToVCS, allHistoryVCS, fileHistoryVCS, fileVersionVCS, initVCS,
                                 mergeFileRevsVCS, removeFileRevFromVCS, removeFromVCS, updateInVCS)
-import Loaders.Loader (getFileSystem)
+import Loaders.Downloader (getFileSystem)
 import Loaders.Uploader (uploadFileSystem)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
 import System.IO (hFlush, stdout)
+import Utils.Parser (splitArguments)
 
 type ErrorMessage = String
 
@@ -54,64 +56,73 @@ main = do
   runInteractive initState
   return ()
 
+getArguments :: FSState -> IO [String]
+getArguments st = do
+  printPrompt st
+  s <- getLine
+  case splitArguments s of
+    Nothing  -> do
+      putStrLn $ "Oops! Mismatched quotes"
+      getArguments st
+    (Just a) -> return a
+
 runInteractive :: FSState -> IO ()
 runInteractive st@FSState{curFileSystem = fs} = do
-  printPrompt st
-  args <- words <$> getLine
+  args <- getArguments st
   let parsRes = execParserPure defaultPrefs optsParser args
   unpackedRes <- customHandleParserResult parsRes
-  curTime <- getCurrentTime
+  time <- getCurrentTime
   case unpackedRes of
     Left msg -> do
       putStrLn msg
       runInteractive st
     Right opts ->
       case optCommand opts of
-        Debug                   -> handleOperationString debugFS ""
-        Dir                     -> handleOperationString directoryContent ""
+        Debug                   -> callHandlerString debugFS ""
+        Dir                     -> callHandlerString directoryContent ""
         Exit                    -> uploadFileSystem fs >> putStrLn "Bye-bye"
-        Cd path                 -> handleOperationVoid  goToDirectory path
-        Ls path                 -> handleOperationString directoryContent path
-        Cat path                -> handleOperationByteString fileContent path
-        Remove path             -> handleOperationVoid removeFileOrDirectory path
-        FindFile name           -> handleOperationString findFile name
-        CreateFile name         -> handleOperationVoid createFile (name, curTime)
-        Information path        -> handleOperationString information path
-        CreateFolder name       -> handleOperationVoid createDirectory name
-        WriteToFile path cont   -> handleOperationVoid writeToFile ((B.pack cont), path, curTime)
-        VCSInit                 -> handleOperationString0 initVCS
-        VCSAdd path             -> handleOperationString addToVCS path
-        VCSUpdate path msg      -> handleOperationString updateInVCS (path, msg)
-        VCSHistory path         -> handleOperationString fileHistoryVCS path
-        VCSCat path i           -> handleOperationByteString fileVersionVCS (path, i)
-        VCSRemove path          -> handleOperationString removeFromVCS path
-        VCSRemoveRev path i     -> handleOperationString removeFileRevFromVCS (path, i)
-        VCSMergeRevs path i j s -> handleOperationString mergeFileRevsVCS (path, i, j, s, curTime)
-        VCSShowAll              -> handleOperationString0 allHistoryVCS
+        Cd path                 -> callHandlerVoid  goToDirectory path
+        Ls path                 -> callHandlerString directoryContent path
+        Cat path                -> callHandlerByteString fileContent path
+        Remove path             -> callHandlerVoid removeFileOrDirectory path
+        FindFile name           -> callHandlerString findFile name
+        CreateFile name         -> callHandlerVoid createFile (name, time)
+        Information path        -> callHandlerString information path
+        CreateFolder name       -> callHandlerVoid createDirectory name
+        WriteToFile path cont   -> callHandlerVoid writeToFile ((B.fromString cont), path, time)
+        VCSInit                 -> callHandlerString0 initVCS
+        VCSAdd path             -> callHandlerString addToVCS path
+        VCSUpdate path msg      -> callHandlerString updateInVCS (path, msg)
+        VCSHistory path         -> callHandlerString fileHistoryVCS path
+        VCSCat path i           -> callHandlerByteString fileVersionVCS (path, i)
+        VCSRemove path          -> callHandlerString removeFromVCS path
+        VCSRemoveRev path i     -> callHandlerString removeFileRevFromVCS (path, i)
+        VCSMergeRevs path i j s -> callHandlerString mergeFileRevsVCS (path, i, j, s, time)
+        VCSShowAll              -> callHandlerString0 allHistoryVCS
   where
-    handleOperationVoid foo arg = do
+    callHandlerVoid foo arg = do
       let (res, newState) = runState (runExceptT $ foo arg) st
       case res of
         (Left err) -> putStrLn $ "Oops: " ++ (show err)
         (Right _ ) -> return ()
       runInteractive newState
-    handleOperationString0 foo = do
+    callHandlerString0 foo = do
       let (res, newState) = runState (runExceptT foo) st
       case res of
         (Left err) -> putStrLn $ "Oops: " ++ (show err)
         (Right s ) -> putStrLn s
       runInteractive newState
-    handleOperationString foo arg = do
+    callHandlerString foo arg = do
       let (res, newState) = runState (runExceptT $ foo arg) st
       case res of
         (Left err) -> putStrLn $ "Oops: " ++ (show err)
         (Right s ) -> putStrLn s
       runInteractive newState
-    handleOperationByteString foo arg = do
+    callHandlerByteString foo arg = do
       let (res, newState) = runState (runExceptT $ foo arg) st
       case res of
         (Left err) -> putStrLn $ "Oops: " ++ (show err)
-        (Right s ) -> B.putStrLn s
+        (Right s ) -> BS.putStrLn s
       runInteractive newState
 
 printPrompt :: FSState -> IO ()

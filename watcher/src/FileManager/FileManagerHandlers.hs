@@ -21,6 +21,7 @@ import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import Data.Time.Clock (UTCTime (..))
 import FileManager.FileSystemTypes
+-- import System.Directory (searchable)
 import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute, joinPath, splitFileName)
 import Utils.FilePathUtils
@@ -89,21 +90,24 @@ createFile (name, time) = do
 findFile :: String -> ExceptState String
 findFile fileName = do
   curDir <- getCurFSDirectory
-  let files = searchForFileInDirectory fileName curDir
+  let files = searchForFileInDirectory curDir
   if (files == []) then
     throwE FileNotFound
   else
     return $ intercalate "\n" files
   where
-    searchForFileInDirectory :: String -> Directory -> [FilePath]
-    searchForFileInDirectory name dir = do
-      let dirElements = map (\x -> snd x) $ Map.toList $ getDirContents dir
+    searchForFileInDirectory :: Directory -> [FilePath]
+    searchForFileInDirectory dir = do
+      let dirElements = map snd $ Map.toList $ getDirContents dir
       let filesInDir =
             map (\x -> getFilePath $ getFileInfo x)
-              (filter (\x -> (getFileName x) == name) $ lefts dirElements)
+              (filter filePredicate $ lefts dirElements)
       let subDirs = rights dirElements
-      let filesInSubDir = concat $ map (searchForFileInDirectory name) subDirs
+      let filesInSubDir = concat $ map searchForFileInDirectory subDirs
       filesInDir ++ filesInSubDir
+    filePredicate :: File -> Bool
+    filePredicate = \x -> (getFileName x) == fileName
+
 
 -- | Accepts new file's content (as a `ByteString`) and path to file, changes
 -- this file's content. Updates state (file system). Throws `NotFile` if

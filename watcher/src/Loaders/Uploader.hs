@@ -15,12 +15,12 @@ import Utils.LoaderUtils (isDirectory, isFile, listExceptionHandler)
 
 uploadFileSystem :: FileSystem -> IO ()
 uploadFileSystem fs = do
-  uploadDirectory (getRootDirectory fs)
+  uploadDirectory $ getRootDirectory fs
 
 uploadDirectory :: Directory -> IO ()
 uploadDirectory dir = do
-  let path= getDirPath $ getDirInfo dir
-  createDirectoryIfMissing True $ path
+  let path = getDirPath $ getDirInfo dir
+  (createDirectoryIfMissing True path) `catch` itakSoidetHandler
   let dirContents = getDirContents dir
   list <- listDirectory path `catch` listExceptionHandler
   dirNames <- filterM (\x -> isDirectory path x) list
@@ -39,7 +39,7 @@ uploadFile file = do
   let filePath = getFilePath $ getFileInfo file
   let content = getFileData file
   createDirectoryIfMissing True $ takeDirectory filePath
-  B.writeFile filePath content
+  B.writeFile filePath content `catch` nezapisalos file
 
 removeDirectorySafe :: FilePath -> IO ()
 removeDirectorySafe path = do
@@ -48,6 +48,12 @@ removeDirectorySafe path = do
 removeFileSafe :: FilePath -> IO ()
 removeFileSafe path = do
   removeFile path `catch` (removeFileExceptionHandler path)
+
+nezapisalos :: File -> SomeException -> IO ()
+nezapisalos file = \_ -> putStrLn $ "ne zapisal :/\n" ++ (show file)
+
+itakSoidetHandler :: SomeException -> IO ()
+itakSoidetHandler = \_ -> putStrLn "ne sozdal :/"
 
 removeDirExceptionHandler :: FilePath -> SomeException -> IO ()
 removeDirExceptionHandler path = \_ -> putStrLn $ "Unable to remove directory " ++ path
