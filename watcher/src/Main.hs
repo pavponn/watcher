@@ -12,6 +12,7 @@ import FileManager.FileSystemTypes
 import FileManager.VCSHandlers (addToVCS, allHistoryVCS, fileHistoryVCS, fileVersionVCS, initVCS,
                                 mergeFileRevsVCS, removeFileRevFromVCS, removeFromVCS, updateInVCS)
 import Loaders.Loader (getFileSystem)
+import Loaders.Uploader (uploadFileSystem)
 import Options.Applicative
 import System.Directory (makeAbsolute)
 import System.Environment (getArgs, getProgName)
@@ -54,7 +55,7 @@ main = do
   return ()
 
 runInteractive :: FSState -> IO ()
-runInteractive st = do
+runInteractive st@FSState{curFileSystem = fs} = do
   printPrompt st
   args <- words <$> getLine
   let parsRes = execParserPure defaultPrefs optsParser args
@@ -68,7 +69,7 @@ runInteractive st = do
       case optCommand opts of
         Debug                   -> handleOperationString debugFS ""
         Dir                     -> handleOperationString directoryContent ""
-        Exit                    -> putStrLn "Bye-bye"
+        Exit                    -> uploadFileSystem fs >> putStrLn "Bye-bye"
         Cd path                 -> handleOperationVoid  goToDirectory path
         Ls path                 -> handleOperationString directoryContent path
         Cat path                -> handleOperationByteString fileContent path

@@ -23,6 +23,7 @@ executable watcher
                      , FileManager.FileManagerHandlers
                      , Utils.FilePathUtils
                      , Utils.FileSystemUtils
+                     , Utils.LoaderUtils
                      , FileManager.VCSHandlers
                      , Loaders.Loader
                      , Loaders.Uploader

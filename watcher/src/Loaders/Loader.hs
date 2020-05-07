@@ -2,16 +2,15 @@ module Loaders.Loader
   ( getFileSystem
   ) where
 
-import Control.Exception (SomeException, catch)
+import Control.Exception (catch)
 import Control.Monad
 import qualified Data.ByteString as B
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+import Utils.LoaderUtils (isDirectory, isFile, listExceptionHandler, permsExceptionHandler)
 import FileManager.FileSystemTypes
 import Network.Mime (fileNameExtensions)
-import System.Directory.Internal (Permissions (..))
-import System.Directory (doesDirectoryExist, doesFileExist, getFileSize,
-                         getModificationTime, getPermissions, listDirectory, pathIsSymbolicLink)
+import System.Directory (getFileSize, getModificationTime, getPermissions, listDirectory)
 import System.FilePath.Posix (dropTrailingPathSeparator, splitFileName, (</>))
 import System.IO.Error (ioError, userError)
 
@@ -22,7 +21,7 @@ getFileSystem dirPath = do
   if isDir then do
     rootDir <- visitDirectory path name
     return $ FileSystem rootDir (path </> name)
-  else ioError $ userError $ "Can't get file system by path: " ++ dirPath 
+  else ioError $ userError $ "Can't get file system by path: " ++ dirPath
 
 visitDirectory :: FilePath -> FilePath -> IO Directory
 visitDirectory path name = do
@@ -48,26 +47,3 @@ visitFile path name = do
   let fileTypes = T.unpack <$> (fileNameExtensions . T.pack) name
   let fileInfo = FileInfo fileTypes actualPath fileSize perms time
   return $ File name fileInfo fileData
-
-isDirectory :: FilePath -> FilePath -> IO Bool
-isDirectory path name = do
-  let realPath = path </> name
-  isDir <- doesDirectoryExist realPath `catch` falseExceptionHandler
-  isSymbLink <- pathIsSymbolicLink realPath `catch` falseExceptionHandler
-  return $ isDir && not isSymbLink
-
-isFile :: FilePath -> FilePath -> IO Bool
-isFile path name = do
-  let realPath = path </> name
-  isF <- doesFileExist realPath `catch` falseExceptionHandler
-  isSymbLink <- pathIsSymbolicLink realPath `catch` falseExceptionHandler
-  return $ isF && not isSymbLink
-
-listExceptionHandler :: SomeException -> IO [FilePath]
-listExceptionHandler = \_ -> return []
-
-permsExceptionHandler :: SomeException -> IO Permissions
-permsExceptionHandler = \_ -> return $ Permissions False False False False
-
-falseExceptionHandler :: SomeException -> IO Bool
-falseExceptionHandler = \_ -> return False
