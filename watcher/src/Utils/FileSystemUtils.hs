@@ -1,7 +1,3 @@
-{-|
-This module contains helper functions for manipulating `FSState`
-and FileSystem. There is no reason to use it apart from others.
--}
 module Utils.FileSystemUtils
   ( lookupInDirectory
   , getCurFSDirectory

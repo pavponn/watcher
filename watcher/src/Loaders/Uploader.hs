@@ -1,4 +1,4 @@
- module Loaders.Uploader
+module Loaders.Uploader
   ( uploadFileSystem
   ) where
 
@@ -15,6 +15,7 @@ import System.FilePath.Posix (takeDirectory, (</>))
 import System.FilePath.Posix (dropTrailingPathSeparator)
 import Utils.LoaderUtils
 
+-- | Uploads `FileSystem` into real fil system.
 uploadFileSystem :: FileSystem -> IO ()
 uploadFileSystem fs = do
   uploadDirectory $ getRootDirectory fs

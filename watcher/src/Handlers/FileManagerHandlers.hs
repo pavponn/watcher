@@ -10,7 +10,6 @@ module Handlers.FileManagerHandlers
   , directoryContent
   , writeToFile
   , removeFileOrDirectory
-  , debugFS
   ) where
 
 import Control.Monad.State
@@ -25,13 +24,6 @@ import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute, joinPath, splitFileName)
 import Utils.FilePathUtils
 import Utils.FileSystemUtils
-
-debugFS :: FilePath -> ExceptState FilePath
-debugFS _ = do
-  FSState{curFileSystem = fs, curDirectoryPath = curPath, curVCSPath = vcsPath}<- get
-  return $ "PATH TO CUR DIR : " ++  curPath ++ "\n" ++
-             "CUR VCS PATH : " ++ (show vcsPath) ++ "\n" ++
-               "ROOT_DIR:\n" ++ (show $ getDirInfo $ getRootDirectory fs)
 
 -- | Accepts path to file or directory and removes it from file system,
 -- changing current state: file system and all current paths.

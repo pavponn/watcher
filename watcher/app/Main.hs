@@ -8,7 +8,7 @@ import Data.Maybe (isNothing)
 import Data.Semigroup ((<>))
 import Data.Time.Clock (getCurrentTime)
 import FileSystemTypes
-import Handlers.FileManagerHandlers (createDirectory, createFile, debugFS, directoryContent,
+import Handlers.FileManagerHandlers (createDirectory, createFile, directoryContent,
                                      fileContent, findFile, goToDirectory, information,
                                      removeFileOrDirectory, writeToFile)
 import Handlers.VCSHandlers (addToVCS, allHistoryVCS, fileHistoryVCS, fileVersionVCS, initVCS,
@@ -46,7 +46,6 @@ data Command
   | VCSRemove FilePath
   | VCSRemoveRev FilePath Integer
   | VCSMergeRevs FilePath Integer Integer String
-  | Debug
 
 main :: IO ()
 main = do
@@ -79,7 +78,6 @@ runInteractive st@FSState{curFileSystem = fs} = do
       runInteractive st
     Right opts ->
       case optCommand opts of
-        Debug                   -> callHandlerString debugFS ""
         Dir                     -> callHandlerString directoryContent ""
         Exit                    -> uploadFileSystem fs >> putStrLn "Bye-bye"
         Cd path                 -> callHandlerVoid  goToDirectory path
@@ -166,7 +164,6 @@ programOptions =
     <> vcsRemoveRevCommand
     <> vcsMergeRevsCommand
     <> vcsShowAllCommand
-    <> debugCommand
     )
   where
     dirCommand :: Mod CommandFields Command
@@ -228,7 +225,7 @@ programOptions =
     vcsHistoryCommand :: Mod CommandFields Command
     vcsHistoryCommand = command
       "vcs-history"
-      (info vcsHistoryOptions (progDesc "update specified file in VCS"))
+      (info vcsHistoryOptions (progDesc "show history of specified file in VCS"))
     vcsCatCommand :: Mod CommandFields Command
     vcsCatCommand = command
       "vcs-cat"
@@ -244,7 +241,7 @@ programOptions =
     vcsMergeRevsCommand :: Mod CommandFields Command
     vcsMergeRevsCommand = command
       "vcs-merge-revs"
-      (info vcsMergeRevsOptions (progDesc "remove specified revision of specified file from VCS"))
+      (info vcsMergeRevsOptions (progDesc "merge revisions of specified file from VCS"))
     vcsShowAllCommand :: Mod CommandFields Command
     vcsShowAllCommand = command
       "vcs-show-all"
@@ -303,10 +300,6 @@ programOptions =
       argument auto (metavar "INDEX" <> help "Index of file in vcs") <*>
       argument auto (metavar "INDEX" <> help "Index of file in vcs") <*>
       strArgument (metavar "STRATEGY" <> help "strategy of merging revisions VCS")
-    debugCommand :: Mod CommandFields Command
-    debugCommand = command
-      "debug"
-      (info (pure Debug) (progDesc "let's say, it's an easter egg"))
 
 customHandleParserResult :: ParserResult a -> IO (Either ErrorMessage a)
 customHandleParserResult (Success a) = return $ Right a
