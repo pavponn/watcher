@@ -1,4 +1,4 @@
-module FileManager.VCSHandlers
+module Handlers.VCSHandlers
   ( initVCS
   , addToVCS
   , updateInVCS
@@ -16,8 +16,8 @@ import qualified Data.ByteString.Char8 as B
 import Data.List (concat, intercalate, isPrefixOf, sort)
 import qualified Data.Map.Strict as Map
 import Data.Time.Clock (UTCTime)
-import FileManager.FileManagerHandlers (writeToFile)
-import FileManager.FileSystemTypes
+import FileSystemTypes
+import Handlers.FileManagerHandlers (writeToFile)
 import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute)
 import Utils.FilePathUtils

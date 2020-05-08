@@ -7,7 +7,7 @@ module Utils.FilePathUtils
 import Control.Monad.State
 import Control.Monad.Trans.Except
 import Data.List (intercalate, unfoldr)
-import FileManager.FileSystemTypes
+import FileSystemTypes
 import System.FilePath (isPathSeparator, pathSeparator)
 import System.FilePath.Posix (dropTrailingPathSeparator, joinPath, makeRelative, normalise,
                               splitDirectories)

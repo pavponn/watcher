@@ -26,7 +26,7 @@ import Data.Either (lefts, rights)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isNothing)
 import Utils.FilePathUtils
-import FileManager.FileSystemTypes
+import FileSystemTypes
 import System.FilePath ((</>))
 import System.Directory (writable, readable)
 

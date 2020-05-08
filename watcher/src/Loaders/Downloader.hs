@@ -8,7 +8,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
-import FileManager.FileSystemTypes
+import FileSystemTypes
 import Network.Mime (fileNameExtensions)
 import System.Directory (getFileSize, getModificationTime, getPermissions, listDirectory)
 import System.FilePath.Posix (dropTrailingPathSeparator, splitFileName, (</>), makeRelative)

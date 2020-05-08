@@ -1,4 +1,4 @@
-module FileManager.FileSystemTypes where
+module FileSystemTypes where
 
 import qualified Data.ByteString as B
 import qualified Data.Map.Strict as Map
@@ -116,7 +116,7 @@ instance Show FSException where
   show NotFile = "not a path to file."
   show NotDirectory = "not a path to directory."
   show FileNotFound = "there is no such file in directory with matching name."
-  show (NotValidName name) = "invalid name \"" ++ name ++ "\"." 
+  show (NotValidName name) = "invalid name \"" ++ name ++ "\"."
   show (NotValidPath path) = "path" ++  path ++ " is invalid.\n" ++
     "There might be a problem in \"..\". Remember, watcher treats it's main directory" ++
     "as a root and knows nothing else about your real file system that is out of it."

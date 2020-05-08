@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module FileManager.FileManagerHandlers
+module Handlers.FileManagerHandlers
   ( createDirectory
   , createFile
   , findFile
@@ -20,7 +20,7 @@ import Data.Either (lefts, rights)
 import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import Data.Time.Clock (UTCTime (..))
-import FileManager.FileSystemTypes
+import FileSystemTypes
 import System.FilePath ((</>))
 import System.FilePath.Posix (isAbsolute, joinPath, splitFileName)
 import Utils.FilePathUtils

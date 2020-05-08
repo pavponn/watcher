@@ -7,12 +7,12 @@ import qualified Data.ByteString.UTF8 as B
 import Data.Maybe (isNothing)
 import Data.Semigroup ((<>))
 import Data.Time.Clock (getCurrentTime)
-import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, directoryContent,
-                                        fileContent, findFile, goToDirectory, information,
-                                        removeFileOrDirectory, writeToFile)
-import FileManager.FileSystemTypes
-import FileManager.VCSHandlers (addToVCS, allHistoryVCS, fileHistoryVCS, fileVersionVCS, initVCS,
-                                mergeFileRevsVCS, removeFileRevFromVCS, removeFromVCS, updateInVCS)
+import FileSystemTypes
+import Handlers.FileManagerHandlers (createDirectory, createFile, debugFS, directoryContent,
+                                     fileContent, findFile, goToDirectory, information,
+                                     removeFileOrDirectory, writeToFile)
+import Handlers.VCSHandlers (addToVCS, allHistoryVCS, fileHistoryVCS, fileVersionVCS, initVCS,
+                             mergeFileRevsVCS, removeFileRevFromVCS, removeFromVCS, updateInVCS)
 import Loaders.Downloader (getFileSystem)
 import Loaders.Uploader (uploadFileSystem)
 import Options.Applicative

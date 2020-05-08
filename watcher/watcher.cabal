@@ -17,17 +17,9 @@ cabal-version:       >=1.10
 tested-with:         GHC == 8.6.5
 
 executable watcher
-  hs-source-dirs:      src
+  hs-source-dirs:      app
   main-is:             Main.hs
-  other-modules:       FileManager.FileSystemTypes
-                     , FileManager.FileManagerHandlers
-                     , Utils.FilePathUtils
-                     , Utils.FileSystemUtils
-                     , Utils.LoaderUtils
-                     , Utils.Parser
-                     , FileManager.VCSHandlers
-                     , Loaders.Downloader
-                     , Loaders.Uploader
+  -- other-modules:
   -- other-extensions:
   ghc-options:         -Wall -Werror
   build-depends:       base >=4.9 && < 5
@@ -37,9 +29,49 @@ executable watcher
                      , bytestring
                      , utf8-string
                      , containers
-                     , filepath
                      , transformers
                      , optparse-applicative
+                     , watcher
+  default-language:    Haskell2010
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     FileSystemTypes
+                     , Handlers.VCSHandlers
+                     , Handlers.FileManagerHandlers
+                     , Utils.FilePathUtils
+                     , Utils.FileSystemUtils
+                     , Utils.LoaderUtils
+                     , Utils.Parser
+                     , Loaders.Downloader
+                     , Loaders.Uploader
+  ghc-options:         -Wall
+  build-depends:       base >= 4.9 && < 5
+                     , directory
+                     , time
+                     , mtl
+                     , bytestring
+                     , utf8-string
+                     , containers
+                     , filepath
+                     , transformers
                      , mime-types
                      , text
   default-language:    Haskell2010
+
+test-suite watcher-tests
+  type:              exitcode-stdio-1.0
+  hs-source-dirs:    test
+  main-is:           Spec.hs
+  build-depends:     base
+                   , directory
+                   , mtl
+                   , filepath
+                   , hspec
+                   , QuickCheck >= 2.13
+                   , hw2
+  other-modules:     FileManagerSpec
+                   , ParserSpec
+  ghc-options:       -Wall -threaded
+
+  default-language:  Haskell2010

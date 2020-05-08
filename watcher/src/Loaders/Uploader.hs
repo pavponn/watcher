@@ -8,7 +8,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.UTF8 as BU
 import Data.Either (partitionEithers)
 import qualified Data.Map.Strict as Map
-import FileManager.FileSystemTypes
+import FileSystemTypes
 import System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive,
                          removeFile, writable, getModificationTime)
 import System.FilePath.Posix (takeDirectory, (</>))
