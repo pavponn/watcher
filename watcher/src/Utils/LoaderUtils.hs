@@ -4,13 +4,19 @@ module Utils.LoaderUtils
   , listExceptionHandler
   , permsExceptionHandler
   , falseExceptionHandler
-  , itsokayExceptionHandler
+  , rethrowHandler
+  , maybeExceptionHandler
+  , timeExceptionHandler
+  , itsOkayExceptionHandler
+  , defaultTimeUTC
   ) where
 
-import Control.Exception (SomeException, catch)
+import Control.Exception (SomeException, catch, throw)
+import Data.Time.Calendar (fromGregorian)
+import Data.Time.Clock (UTCTime (..), secondsToDiffTime)
 import System.Directory (doesDirectoryExist, doesFileExist, pathIsSymbolicLink)
-import System.FilePath.Posix ((</>))
 import System.Directory.Internal (Permissions (..))
+import System.FilePath.Posix ((</>))
 
 -- | Checks whether given filepath is a directory. If it's impossible due to
 -- some reason, returns False.
@@ -30,8 +36,20 @@ isFile path name = do
   isSymbLink <- pathIsSymbolicLink realPath `catch` falseExceptionHandler
   return $ isF && not isSymbLink
 
-itsokayExceptionHandler :: SomeException -> IO ()
-itsokayExceptionHandler = \_ -> return ()
+defaultTimeUTC :: UTCTime
+defaultTimeUTC = UTCTime (fromGregorian 0 0 0) (secondsToDiffTime 0)
+
+itsOkayExceptionHandler :: SomeException -> IO ()
+itsOkayExceptionHandler = \_ -> return ()
+
+timeExceptionHandler :: SomeException -> IO UTCTime
+timeExceptionHandler = \_ -> return $ defaultTimeUTC
+
+maybeExceptionHandler :: SomeException -> IO (Maybe a)
+maybeExceptionHandler = \_ -> return Nothing
+
+rethrowHandler :: SomeException -> IO a
+rethrowHandler = \ex -> throw ex
 
 listExceptionHandler :: SomeException -> IO [FilePath]
 listExceptionHandler = \_ -> return []

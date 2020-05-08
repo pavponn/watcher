@@ -244,6 +244,7 @@ isInVCSMap mp element message = do
     return ()
   else
     throwE $ VCSException message
+
 updateFile :: FilePath -> File -> String -> ExceptState String
 updateFile vcsPath file msg = do
   dirVCS <- getDirectoryByPath vcsPath `catchE` (\_ -> throwE $ FSInconsistent)

@@ -4,6 +4,7 @@ import Control.Monad.State
 import Control.Monad.Trans.Except
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.UTF8 as B
+import Data.Maybe (isNothing)
 import Data.Semigroup ((<>))
 import Data.Time.Clock (getCurrentTime)
 import FileManager.FileManagerHandlers (createDirectory, createFile, debugFS, directoryContent,
@@ -52,7 +53,8 @@ main = do
   a <- (\x -> if x == [] then "" else head x) <$> getArgs
   -- maybe error here
   fs <- makeAbsolute a >>= \curDir -> getFileSystem curDir
-  let initState = FSState fs "" Nothing
+  let maybePath = if (isNothing $ getVCSStorage $ getRootDirectory fs) then Nothing else Just ""
+  let initState = FSState fs "" maybePath
   runInteractive initState
   return ()
 

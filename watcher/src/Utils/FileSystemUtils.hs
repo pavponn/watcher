@@ -15,6 +15,7 @@ module Utils.FileSystemUtils
   , getAllFilesInDirAndSubDirs
   , checkFileWritablePermissions
   , checkDirWritablePermissions
+  , getAllFilesInDirRecursive
   ) where
 
 import Control.Monad.State
@@ -148,6 +149,11 @@ getAllFilesInDirAndSubDirs curDir = do
   filesInSubDir <- mapM getAllFilesInDirAndSubDirs (rights dirElements)
   return $ (lefts dirElements) ++ (concat filesInSubDir)
 
+getAllFilesInDirRecursive :: Directory -> [File]
+getAllFilesInDirRecursive dir = do
+  let dirElements = map (\x -> snd x) $ Map.toList $ getDirContents dir
+  let filesInSubDir = map getAllFilesInDirRecursive (rights dirElements)
+  (lefts dirElements) ++ (concat filesInSubDir)
 
 checkFileWritablePermissions :: File -> ExceptState ()
 checkFileWritablePermissions file = do

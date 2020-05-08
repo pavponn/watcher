@@ -2,7 +2,7 @@
   ( uploadFileSystem
   ) where
 
-import Control.Exception (SomeException, catch, throw)
+import Control.Exception (SomeException, catch)
 import Control.Monad
 import qualified Data.ByteString as B
 import qualified Data.ByteString.UTF8 as BU
@@ -10,10 +10,10 @@ import Data.Either (partitionEithers)
 import qualified Data.Map.Strict as Map
 import FileManager.FileSystemTypes
 import System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive,
-                         removeFile, writable)
+                         removeFile, writable, getModificationTime)
 import System.FilePath.Posix (takeDirectory, (</>))
-import Utils.LoaderUtils
 import System.FilePath.Posix (dropTrailingPathSeparator)
+import Utils.LoaderUtils
 
 uploadFileSystem :: FileSystem -> IO ()
 uploadFileSystem fs = do
@@ -22,7 +22,7 @@ uploadFileSystem fs = do
 uploadDirectory :: Directory -> IO ()
 uploadDirectory dir = do
   let path = getDirPath $ getDirInfo dir
-  (createDirectoryIfMissing True path) `catch` itakSoidetHandler
+  (createDirectoryIfMissing True path) `catch` itsOkayExceptionHandler
   let dirContents = getDirContents dir
   list <- listDirectory path `catch` listExceptionHandler
   dirNames <- filterM (\x -> isDirectory path x) list
@@ -43,8 +43,12 @@ uploadFile file = do
   createDirectoryIfMissing True $ takeDirectory filePath
   if (not $ writable $ getFilePermissions $ getFileInfo file) then
     return ()
-  else
-    B.writeFile filePath content `catch` nezapisalos file
+  else do
+    time <- getModificationTime filePath `catch` timeExceptionHandler
+    if (time == (getFileModificationTime $ getFileInfo file)) then
+      return ()
+    else
+      B.writeFile filePath content `catch` nezapisalExceptionHandler filePath
 
 uploadVCS :: FilePath -> Maybe VCSStorage -> IO ()
 uploadVCS _    Nothing   = return ()
@@ -66,7 +70,7 @@ uploadVCS path (Just st) = do
 
 createIndexFile :: FilePath -> VCSStorage -> IO ()
 createIndexFile vcsPath st = do
-  let fileName = "index_" ++ (show $ getRevisionsNum st)
+  let fileName = "index"
   let indexesToMessages = Map.toList $ Map.unions $ Map.elems $ getVCSFiles st
   let content = B.concat $ map getLineForRev indexesToMessages
   createDirectoryIfMissing True vcsPath
@@ -98,17 +102,11 @@ removeFileSafe :: FilePath -> IO ()
 removeFileSafe path = do
   removeFile path `catch` (removeFileExceptionHandler path)
 
-rethrowHandler :: SomeException -> IO ()
-rethrowHandler  = \ex -> throw ex
-
-nezapisalos :: File -> SomeException -> IO ()
-nezapisalos file = \_ -> putStrLn $ "ne zapisal :/\n" ++ (show file)
-
-itakSoidetHandler :: SomeException -> IO ()
-itakSoidetHandler = \_ -> putStrLn "ne sozdal :/"
-
 removeDirExceptionHandler :: FilePath -> SomeException -> IO ()
 removeDirExceptionHandler path = \_ -> putStrLn $ "Unable to remove directory " ++ path
 
 removeFileExceptionHandler :: FilePath -> SomeException -> IO ()
 removeFileExceptionHandler path = \_ -> putStrLn $ "Unable to remove file " ++ path
+
+nezapisalExceptionHandler :: FilePath -> SomeException -> IO ()
+nezapisalExceptionHandler path = \_ -> putStrLn $ "Unable to write file: " ++ path
