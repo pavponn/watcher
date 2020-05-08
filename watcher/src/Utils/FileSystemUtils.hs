@@ -12,7 +12,6 @@ module Utils.FileSystemUtils
   , updateFileSystem
   , retractVCSStorage
   , getVCSPath
-  , getAllFilesInDirAndSubDirs
   , checkFileWritablePermissions
   , checkDirWritablePermissions
   , getAllFilesInDirRecursive
@@ -145,12 +144,6 @@ getVCSPath = do
     (Just p) -> return p
 
 -- | Returns list of files from given directory and its subdirectories.
-getAllFilesInDirAndSubDirs :: Directory -> ExceptState [File]
-getAllFilesInDirAndSubDirs curDir = do
-  let dirElements = map (\x -> snd x) $ Map.toList $ getDirContents curDir
-  filesInSubDir <- mapM getAllFilesInDirAndSubDirs (rights dirElements)
-  return $ (lefts dirElements) ++ (concat filesInSubDir)
-
 getAllFilesInDirRecursive :: Directory -> [File]
 getAllFilesInDirRecursive dir = do
   let dirElements = map (\x -> snd x) $ Map.toList $ getDirContents dir

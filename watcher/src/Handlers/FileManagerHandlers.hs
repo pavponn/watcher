@@ -202,7 +202,10 @@ information :: FilePath -> ExceptState String
 information path = runImmutableFunction getInformation path
   where
     getInformation :: Directory -> [FilePath] -> ExceptState String
-    getInformation dir [] = return $ "ROOT Directory\n" ++ (show $ getDirInfo dir)
+    getInformation dir [] = do
+      let filesInDirectory = getAllFilesInDirRecursive dir
+      return $ "ROOT Directory\n" ++ (show $ getDirInfo dir) ++
+        "\nTotal files: " ++ (show $ length filesInDirectory)
     getInformation dir (x:xs) = do
       a <- lookupInDirectory dir x
       case a of
@@ -213,7 +216,7 @@ information path = runImmutableFunction getInformation path
             throwE NoSuchFileOrDirectory
         (Right dir') -> do
           if (xs == []) then do
-              filesInDirectory <- getAllFilesInDirAndSubDirs dir'
+              let filesInDirectory = getAllFilesInDirRecursive dir'
               return $ intercalate "\n" $
                   ([getDirName, show . getDirInfo] <*> [dir']) ++
                     ["Total files: " ++ (show $ length filesInDirectory)]

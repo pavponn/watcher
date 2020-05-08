@@ -262,7 +262,7 @@ addFile vcsPath file = addFiles vcsPath [file]
 
 addDir :: FilePath -> Directory -> ExceptState String
 addDir vcsPath dir = do
-  allFiles <- getAllFilesInDirAndSubDirs dir
+  let allFiles = getAllFilesInDirRecursive dir
   addFiles vcsPath allFiles
 
 addFiles :: FilePath -> [File] -> ExceptState String
