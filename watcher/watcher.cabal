@@ -65,13 +65,17 @@ test-suite watcher-tests
   main-is:           Spec.hs
   build-depends:     base
                    , directory
+                   , time
+                   , containers
+                   , transformers
+                   , bytestring
+                   , utf8-string
                    , mtl
                    , filepath
                    , hspec
                    , QuickCheck >= 2.13
-                   , hw2
+                   , watcher
   other-modules:     FileManagerSpec
-                   , ParserSpec
   ghc-options:       -Wall -threaded
 
   default-language:  Haskell2010

@@ -31,7 +31,7 @@ debugFS _ = do
   FSState{curFileSystem = fs, curDirectoryPath = curPath, curVCSPath = vcsPath}<- get
   return $ "PATH TO CUR DIR : " ++  curPath ++ "\n" ++
              "CUR VCS PATH : " ++ (show vcsPath) ++ "\n" ++
-               "ROOT_DIR:\n" ++ (show $ getDirInfo $ getRootDirectory fs) ++ "\n"
+               "ROOT_DIR:\n" ++ (show $ getDirInfo $ getRootDirectory fs)
 
 -- | Accepts path to file or directory and removes it from file system,
 -- changing current state: file system and all current paths.
@@ -109,7 +109,6 @@ findFile fileName = do
       filesInDir ++ filesInSubDir
     filePredicate :: File -> Bool
     filePredicate = \x -> (getFileName x) == fileName
-
 
 -- | Accepts new file's content (as a `ByteString`) and path to file, changes
 -- this file's content. Updates state (file system). Throws `NotFile` if

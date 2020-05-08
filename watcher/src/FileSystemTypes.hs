@@ -23,7 +23,7 @@ data FileInfo = FileInfo
   , getFileSizeBytes        :: Integer
   , getFilePermissions      :: Permissions
   , getFileModificationTime :: UTCTime
-}
+  }
 
 -- | Data type that stores all useful information about directory.
 data DirInfo = DirInfo
@@ -85,6 +85,7 @@ data FSException
   | UnsupportedOperation String
   | DuplicateFileOrDirectory String
   | FSInconsistent
+  deriving (Eq)
 
 -- | Typealias for monad we're working in. Just to make it shorter.
 type ExceptState a = ExceptT FSException (State FSState) a
