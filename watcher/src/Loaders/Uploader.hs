@@ -60,7 +60,8 @@ uploadVCS path (Just st) = do
   where
     vcsExceptionHandler :: FilePath -> Integer -> SomeException -> IO ()
     vcsExceptionHandler vcsPath i = \_ -> do
-      putStrLn $ "error while writing VCS, VCS won't be uploaded to system " ++ show i
+      putStrLn $ "error while writing VCS, VCS(" ++ vcsPath ++
+        ") won't be uploaded to system. Code: " ++ show i
       removeDirectorySafe vcsPath
 
 createIndexFile :: FilePath -> VCSStorage -> IO ()

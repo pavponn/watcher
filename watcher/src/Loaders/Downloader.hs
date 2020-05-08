@@ -31,7 +31,7 @@ visitDirectory path name = do
   dirSize <- getFileSize actualPath
   let dirInfo = DirInfo dirSize actualPath permissions
   list <- listDirectory actualPath `catch` listExceptionHandler
-  dirs  <- filterM (\x -> isDirectory actualPath x) list
+  dirs  <- filterM (\x -> liftM2 (&&) (isDirectory actualPath x) (return $ x /= ".vcs")) list
   files <- filterM (\x -> isFile actualPath x) list
   contentDirectories <- zip dirs <$> (map Right) <$> mapM (visitDirectory actualPath) dirs
   contentFiles <- zip files <$> (map Left) <$> mapM (visitFile actualPath) files
