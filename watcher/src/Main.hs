@@ -51,7 +51,6 @@ data Command
 main :: IO ()
 main = do
   a <- (\x -> if x == [] then "" else head x) <$> getArgs
-  -- maybe error here
   fs <- makeAbsolute a >>= \curDir -> getFileSystem curDir
   let maybePath = if (isNothing $ getVCSStorage $ getRootDirectory fs) then Nothing else Just ""
   let initState = FSState fs "" maybePath
@@ -307,7 +306,7 @@ programOptions =
     debugCommand :: Mod CommandFields Command
     debugCommand = command
       "debug"
-      (info (pure Debug) (progDesc "debug"))
+      (info (pure Debug) (progDesc "let's say, it's an easter egg"))
 
 customHandleParserResult :: ParserResult a -> IO (Either ErrorMessage a)
 customHandleParserResult (Success a) = return $ Right a

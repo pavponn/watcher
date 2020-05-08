@@ -16,6 +16,8 @@ module Utils.FileSystemUtils
   , checkFileWritablePermissions
   , checkDirWritablePermissions
   , getAllFilesInDirRecursive
+  , checkIfNameIsValid
+  , checkFileReadablePermissions
   ) where
 
 import Control.Monad.State
@@ -26,7 +28,7 @@ import Data.Maybe (isNothing)
 import Utils.FilePathUtils
 import FileManager.FileSystemTypes
 import System.FilePath ((</>))
-import System.Directory (writable)
+import System.Directory (writable, readable)
 
 -- | Returns `DirElement` if one with given name exist in `Directory`, otherwise
 -- throws `NoSuchFileOrDirectory`.
@@ -162,9 +164,23 @@ checkFileWritablePermissions file = do
   else
     return ()
 
+checkFileReadablePermissions :: File -> ExceptState ()
+checkFileReadablePermissions file = do
+  if (not $ readable $ getFilePermissions $ getFileInfo file) then
+    throwE $ PermissionsDenied $ getFilePath $ getFileInfo file
+  else
+    return ()
+
 checkDirWritablePermissions :: Directory -> ExceptState ()
 checkDirWritablePermissions dir = do
   if (not $ writable $ getDirPermissions $ getDirInfo dir) then
     throwE $ PermissionsDenied $ getDirPath $ getDirInfo dir
+  else
+    return ()
+
+checkIfNameIsValid :: String -> ExceptState ()
+checkIfNameIsValid str = do
+  if str == ".vcs" then
+    throwE $ NotValidName str
   else
     return ()

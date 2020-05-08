@@ -61,6 +61,7 @@ removeFileOrDirectory path = do
 -- file/directory with providied name already exists.
 createDirectory :: String -> ExceptState ()
 createDirectory name = do
+  checkIfNameIsValid name
   FSState{curFileSystem = fs, curDirectoryPath = relDirPath} <- get
   curDir <- getCurFSDirectory
   checkDirWritablePermissions curDir
@@ -76,6 +77,7 @@ createDirectory name = do
 -- file/directory with providied name already exists.
 createFile :: (String, UTCTime) -> ExceptState ()
 createFile (name, time) = do
+  checkIfNameIsValid name
   FSState{curFileSystem = fs, curDirectoryPath = relDirPath} <- get
   curDir <- getCurFSDirectory
   checkDirWritablePermissions curDir
@@ -186,7 +188,9 @@ fileContent path = runImmutableFunction getFileContent path
       fileOrDir <- lookupInDirectory dir x
       case fileOrDir of
         (Left file) ->
-          if (xs == []) then return $ getFileData file
+          if (xs == []) then do
+            checkFileReadablePermissions file
+            return $ getFileData file
           else throwE NoSuchFileOrDirectory
         (Right dir') ->
           if (xs == []) then throwE NoSuchFileOrDirectory
