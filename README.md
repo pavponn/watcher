@@ -6,7 +6,7 @@ Watcher is a file manager with built-in support of version control system implem
 
 
 ## Summary 
-- Watcher is Unix-like file manager.
+- Watcher is a Unix compatible file manager.
 - Initial directory treated as a root by this file manager. It means that it's only possible to work with initial directory and its subdirectories.
 - You can use both _relative_ and _absolute_ paths. However, _absolute_ path starts at your initial folder. Here is an example:
 initial directory: `/Users/user/a/`, then absolute path is `/b/c/d`, not `/Users/user/a/b/c/d`.
