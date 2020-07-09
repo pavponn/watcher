@@ -5,7 +5,7 @@ import Control.Monad.Trans.Except
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.UTF8 as B
 import Data.Maybe (isNothing)
-import Data.Semigroup ((<>))
+import Data.Semigroup ()
 import Data.Time.Clock (getCurrentTime)
 import FileSystemTypes
 import Handlers.FileManagerHandlers (createDirectory, createFile, directoryContent,
