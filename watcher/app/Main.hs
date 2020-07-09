@@ -135,7 +135,7 @@ optsParser =
     (helper <*> versionOption <*> programOptions)
     (  fullDesc
     <> progDesc "Watcher: FileManager & Control System"
-    <> header "This is header"
+    <> header "Help message"
     )
 
 versionOption :: Parser (a -> a)
