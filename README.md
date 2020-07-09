@@ -36,8 +36,8 @@ stack run <initial directory>
 ```bash
 stack test
 ```
-## 
-![List of available commands](assets/screenshot-1.png)
+
+<img src="assets/screenshot-1.png" width="700"> 
 
 ## Tests
 Tested manually on macOS Catalina 10.15.4.
