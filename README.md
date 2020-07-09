@@ -1,6 +1,6 @@
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/fp-ctd-itmo/hw2-pavponn/blob/master/LICENSE)
 
-# Watcher: File Manager & Version Control System
+# 📁💻 Watcher: File Manager & Version Control System
 Watcher is a file manager with built-in support of version control system implemented in Haskell.
 
 ## Summary 
@@ -11,9 +11,12 @@ initial directory: `/Users/user/a/`, then absolute path is `/b/c/d`, not `/Users
 - It's possible to init VCS in every folder of the system, however you can initialize VCS in each folder only once (same as it's done in git). `Current VCS` is the closest VCS to your current directory.
 - Unfortunately, VCS is not capable to commit file deletion :(
 
-P.S. I know, that code is a bit messy, but hope it's not so bad :/
-
 ## Tests
 Tested manually on macOS Catalina 10.15.4.
 
 Autotests were written using Hspec.
+
+## Copyright
+Pavel Ponomarev, 2020
+
+MIT License.
