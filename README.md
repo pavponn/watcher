@@ -35,7 +35,7 @@ stack run <initial directory>
 ```bash
 stack test
 ```
-
+---
 <img src="assets/screenshot-1.png" width="700"> 
 
 ## Tests
