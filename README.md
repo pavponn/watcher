@@ -37,6 +37,7 @@ stack test
 ```
 ---
 <img src="assets/screenshot-1.png" width="700"> 
+---
 
 ## Tests
 Tested manually on macOS Catalina 10.15.4.
