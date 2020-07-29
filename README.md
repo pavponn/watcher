@@ -1,8 +1,9 @@
 # 📁💻 Watcher: File Manager & Version Control System
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/fp-ctd-itmo/hw2-pavponn/blob/master/LICENSE)
 
+Watcher is a file manager with integrated version control system. It supports most common UNIX commands that interact with file system. VCS provides users with git-like interface: it allows not only to store multiple file revisions, but also search, browse, merge them and many more. 
 
-Watcher is a file manager with built-in support of version control system implemented in Haskell.
+Fully implemented in Haskell.
 
 ## Summary 
 - Watcher is a Unix compatible file manager.
