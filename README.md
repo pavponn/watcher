@@ -37,7 +37,8 @@ stack run <initial directory>
 stack test
 ```
 ---
-<img src="assets/screenshot-1.png" width="700"> 
+<img src="assets/screenshot-1.png" width="700">
+
 ---
 
 ## Tests
