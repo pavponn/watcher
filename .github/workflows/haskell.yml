@@ -1,0 +1,45 @@
+ame: Haskell Stack CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        plan:
+        - { build: stack, resolver: "--resolver lts-14"  }   # ghc-8.6.5
+        include: []
+
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install OS Packages
+      uses: mstksg/get-package@v1
+      with:
+        apt-get: ${{ matrix.apt-get }}
+        brew: ${{ matrix.brew }}
+    - uses: actions/checkout@v1
+
+    - name: Setup stack
+      uses: mstksg/setup-stack@v1
+
+    - name: Install dependencies
+      run: |
+        set -ex
+        stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
+        set +ex
+      env:
+        ARGS: ${{ matrix.plan.resolver }}
+        BUILD: ${{ matrix.plan.build }}
+
+    - name: Build
+      run: |
+        set -ex
+        stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
+        set +ex
+      env:
+        ARGS: ${{ matrix.plan.resolver }}
+        BUILD: ${{ matrix.plan.build }}
