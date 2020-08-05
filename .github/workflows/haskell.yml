@@ -1,4 +1,4 @@
-ame: Haskell Stack CI
+name: Haskell Stack CI
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         plan:
-        - { build: stack, resolver: "--resolver lts-14"  }   # ghc-8.6.5
+        - { build: stack, resolver: "--resolver lts-15.14"  }   # ghc-8.6.5
         include: []
 
     runs-on: ubuntu-latest
